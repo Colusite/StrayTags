@@ -1,4 +1,5 @@
-<img width="2560" height="1440" alt="image" src="https://github.com/user-attachments/assets/0896b9e4-6de7-4bfe-8590-38ac0a62ee2d" />
+<img width="2560" height="1440" alt="image" src="https://github.com/user-attachments/assets/97fb038b-e154-4d1d-833f-44dbc6555def" />
+
 # Initial Release
 ## Only tested on 1.21.11 Fabric 0.141.3 Loader 0.18.4
 Tired of clan leaders changing their tag clan tag colour every 5 minutes?\
