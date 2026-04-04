@@ -1,4 +1,5 @@
-<img width="2560" height="1440" alt="image" src="https://github.com/user-attachments/assets/0896b9e4-6de7-4bfe-8590-38ac0a62ee2d" /># Initial Release
+<img width="2560" height="1440" alt="image" src="https://github.com/user-attachments/assets/0896b9e4-6de7-4bfe-8590-38ac0a62ee2d" />
+# Initial Release
 ## Only tested on 1.21.11 Fabric 0.141.3 Loader 0.18.4
 Tired of clan leaders changing their tag clan tag colour every 5 minutes?\
 With this mod, you can freely customise the nametags of players so that your colour recognition isn't messed up by clan leaders.\
@@ -24,4 +25,3 @@ JSON config at config/straytags.json\
 Cloth Config + Mod Menu integration for in game editing\
 Server whitelist with per server clan lists and format overrides\
 Default stray.gg config with pre-populated clan/player lists for Latte
-<img width="2560" height="1440" alt="image" src="https://github.com/user-attachments/assets/edeb59d0-b48e-4e22-a0f9-3258fec1eba7" />
