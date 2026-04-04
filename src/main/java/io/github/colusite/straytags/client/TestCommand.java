@@ -35,15 +35,32 @@ public class TestCommand {
                         .then(ClientCommandManager.literal("test")
                                 .then(ClientCommandManager.argument("name", StringArgumentType.greedyString())
                                         .executes(ctx -> {
+                                            if (!StrayTagsConfigManager.getConfig().debugCommandsEnabled) {
+                                                ctx.getSource().sendFeedback(Component.literal(
+                                                        "§c[StrayTags] Debug commands are disabled. Enable them in the config."));
+                                                return 0;
+                                            }
                                             String input = StringArgumentType.getString(ctx, "name");
                                             return runTest(ctx.getSource(), input);
                                         })
                                 )
                         )
                         .then(ClientCommandManager.literal("testuser")
-                                .executes(ctx -> runTestUser(ctx.getSource(), null))
+                                .executes(ctx -> {
+                                    if (!StrayTagsConfigManager.getConfig().debugCommandsEnabled) {
+                                        ctx.getSource().sendFeedback(Component.literal(
+                                                "§c[StrayTags] Debug commands are disabled. Enable them in the config."));
+                                        return 0;
+                                    }
+                                    return runTestUser(ctx.getSource(), null);
+                                })
                                 .then(ClientCommandManager.argument("player", StringArgumentType.greedyString())
                                         .executes(ctx -> {
+                                            if (!StrayTagsConfigManager.getConfig().debugCommandsEnabled) {
+                                                ctx.getSource().sendFeedback(Component.literal(
+                                                        "§c[StrayTags] Debug commands are disabled. Enable them in the config."));
+                                                return 0;
+                                            }
                                             String target = StringArgumentType.getString(ctx, "player");
                                             return runTestUser(ctx.getSource(), target);
                                         })
@@ -51,6 +68,11 @@ public class TestCommand {
                         )
                         .then(ClientCommandManager.literal("verbose")
                                 .executes(ctx -> {
+                                    if (!StrayTagsConfigManager.getConfig().debugCommandsEnabled) {
+                                        ctx.getSource().sendFeedback(Component.literal(
+                                                "§c[StrayTags] Debug commands are disabled. Enable them in the config."));
+                                        return 0;
+                                    }
                                     StrayTagsClient.verboseMode = !StrayTagsClient.verboseMode;
                                     if (StrayTagsClient.verboseMode) StrayTagsClient.clearVerboseCache();
                                     ctx.getSource().sendFeedback(Component.literal(
@@ -62,6 +84,11 @@ public class TestCommand {
                         )
                         .then(ClientCommandManager.literal("debug")
                                 .executes(ctx -> {
+                                    if (!StrayTagsConfigManager.getConfig().debugCommandsEnabled) {
+                                        ctx.getSource().sendFeedback(Component.literal(
+                                                "§c[StrayTags] Debug commands are disabled. Enable them in the config."));
+                                        return 0;
+                                    }
                                     StrayTagsClient.debugMode = !StrayTagsClient.debugMode;
                                     if (StrayTagsClient.debugMode) StrayTagsClient.clearVerboseCache();
                                     ctx.getSource().sendFeedback(Component.literal(

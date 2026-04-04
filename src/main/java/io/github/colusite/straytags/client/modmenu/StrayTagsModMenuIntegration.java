@@ -5,10 +5,13 @@ import com.terraformersmc.modmenu.api.ModMenuApi;
 import io.github.colusite.straytags.client.config.ServerConfig;
 import io.github.colusite.straytags.client.config.StrayTagsConfig;
 import io.github.colusite.straytags.client.config.StrayTagsConfigManager;
+import io.github.colusite.straytags.client.minimessage.MiniMessageParser;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
 import me.shedaniel.clothconfig2.api.ConfigCategory;
 import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
+import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 
 import java.util.ArrayList;
 import java.util.Map;
@@ -22,6 +25,11 @@ public class StrayTagsModMenuIntegration implements ModMenuApi {
 
             StrayTagsConfig defaultConfig = StrayTagsConfig.createDefault();
             ServerConfig defaultServerConfig = new ServerConfig();
+
+            String previewUsername;
+            Minecraft client = Minecraft.getInstance();
+            previewUsername = client.getUser().getName();
+            final String playerName = previewUsername;
 
             ConfigBuilder builder = ConfigBuilder.create()
                     .setParentScreen(parent)
@@ -38,6 +46,13 @@ public class StrayTagsModMenuIntegration implements ModMenuApi {
                     .setDefaultValue(defaultConfig.enabled)
                     .setTooltip(Component.translatable("straytags.config.enabled.tooltip"))
                     .setSaveConsumer(val -> config.enabled = val)
+                    .build());
+
+            general.addEntry(entryBuilder.startBooleanToggle(
+                            Component.translatable("straytags.config.debug_commands"), config.debugCommandsEnabled)
+                    .setDefaultValue(defaultConfig.debugCommandsEnabled)
+                    .setTooltip(Component.translatable("straytags.config.debug_commands.tooltip"))
+                    .setSaveConsumer(val -> config.debugCommandsEnabled = val)
                     .build());
 
             general.addEntry(entryBuilder.startStrList(
@@ -129,35 +144,30 @@ public class StrayTagsModMenuIntegration implements ModMenuApi {
                 ConfigCategory formatsCategory = builder.getOrCreateCategory(
                         Component.literal("§d" + displayName + " §7- Formats"));
 
-                formatsCategory.addEntry(buildExpandedTextField(entryBuilder,
-                        "straytags.config.own_format", sc.ownFormat,
-                        defaults.ownFormat,
-                        "straytags.config.own_format.tooltip",
-                        val -> sc.ownFormat = val));
+                addFormatWithPreview(formatsCategory, entryBuilder, playerName,
+                        "straytags.config.own_format", sc.ownFormat, defaults.ownFormat,
+                        "straytags.config.own_format.tooltip", "OWN",
+                        val -> sc.ownFormat = val);
 
-                formatsCategory.addEntry(buildExpandedTextField(entryBuilder,
-                        "straytags.config.allied_format", sc.alliedFormat,
-                        defaults.alliedFormat,
-                        "straytags.config.allied_format.tooltip",
-                        val -> sc.alliedFormat = val));
+                addFormatWithPreview(formatsCategory, entryBuilder, playerName,
+                        "straytags.config.allied_format", sc.alliedFormat, defaults.alliedFormat,
+                        "straytags.config.allied_format.tooltip", "ALLIED",
+                        val -> sc.alliedFormat = val);
 
-                formatsCategory.addEntry(buildExpandedTextField(entryBuilder,
-                        "straytags.config.enemy_format", sc.enemyFormat,
-                        defaults.enemyFormat,
-                        "straytags.config.enemy_format.tooltip",
-                        val -> sc.enemyFormat = val));
+                addFormatWithPreview(formatsCategory, entryBuilder, playerName,
+                        "straytags.config.enemy_format", sc.enemyFormat, defaults.enemyFormat,
+                        "straytags.config.enemy_format.tooltip", "ENEMY",
+                        val -> sc.enemyFormat = val);
 
-                formatsCategory.addEntry(buildExpandedTextField(entryBuilder,
-                        "straytags.config.neutral_format", sc.neutralFormat,
-                        defaults.neutralFormat,
-                        "straytags.config.neutral_format.tooltip",
-                        val -> sc.neutralFormat = val));
+                addFormatWithPreview(formatsCategory, entryBuilder, playerName,
+                        "straytags.config.neutral_format", sc.neutralFormat, defaults.neutralFormat,
+                        "straytags.config.neutral_format.tooltip", "NEUTRAL",
+                        val -> sc.neutralFormat = val);
 
-                formatsCategory.addEntry(buildExpandedTextField(entryBuilder,
-                        "straytags.config.no_clan_format", sc.noClanFormat,
-                        defaults.noClanFormat,
-                        "straytags.config.no_clan_format.tooltip",
-                        val -> sc.noClanFormat = val));
+                addFormatWithPreview(formatsCategory, entryBuilder, playerName,
+                        "straytags.config.no_clan_format", sc.noClanFormat, defaults.noClanFormat,
+                        "straytags.config.no_clan_format.tooltip", "NO CLAN",
+                        val -> sc.noClanFormat = val);
 
                 formatsCategory.addEntry(buildExpandedTextField(entryBuilder,
                         "straytags.config.name_pattern", sc.namePattern,
@@ -172,6 +182,40 @@ public class StrayTagsModMenuIntegration implements ModMenuApi {
 
             return builder.build();
         };
+    }
+
+    private static void addFormatWithPreview(
+            ConfigCategory category,
+            ConfigEntryBuilder entryBuilder,
+            String playerName,
+            String translationKey,
+            String currentValue,
+            String defaultValue,
+            String tooltipKey,
+            String categoryLabel,
+            java.util.function.Consumer<String> saveConsumer
+    ) {
+        category.addEntry(buildExpandedTextField(entryBuilder,
+                translationKey, currentValue, defaultValue, tooltipKey, saveConsumer));
+
+        Component preview;
+        if (currentValue == null || currentValue.isBlank()) {
+            preview = Component.literal("§7  Preview (" + categoryLabel + "): ")
+                    .append(Component.literal("§8(unchanged — blank format)"));
+        } else {
+            try {
+                // Simulate "㭗 PlayerName [CLAN]" -> parse with the format
+                Component rendered = MiniMessageParser.parse(currentValue, "", playerName, "CLAN");
+                MutableComponent line = Component.empty();
+                line.append(Component.literal("§7  Preview (" + categoryLabel + "): §f㭗 "));
+                line.append(rendered);
+                preview = line;
+            } catch (Exception e) {
+                preview = Component.literal("§7  Preview (" + categoryLabel + "): §c(error parsing format)");
+            }
+        }
+
+        category.addEntry(entryBuilder.startTextDescription(preview).build());
     }
 
     private static me.shedaniel.clothconfig2.api.AbstractConfigListEntry<?> buildExpandedTextField(
