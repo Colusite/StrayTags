@@ -39,9 +39,10 @@ public class ServerConfig {
         config.alliedClans.add("Revol2");
         config.alliedClans.add("Revolution");
         config.alliedClans.add("Solace");
-        config.alliedClans.add("LegionKnights");
-        config.alliedClans.add("LegionKnights2");
-        config.alliedClans.add("Aspect");
+        config.alliedClans.add("Serenity");
+        config.alliedClans.add("Knights");
+        config.alliedClans.add("Knights2");
+        config.alliedClans.add("Aspct");
         config.alliedClans.add("Valor");
         config.alliedClans.add("Compilance");
         config.alliedClans.add("Sakura");
