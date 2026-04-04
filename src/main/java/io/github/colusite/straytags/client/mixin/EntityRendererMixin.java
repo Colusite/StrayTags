@@ -7,8 +7,10 @@ import net.minecraft.client.renderer.entity.state.TextDisplayEntityRenderState;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.entity.Display;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -31,7 +33,9 @@ public abstract class EntityRendererMixin {
     ) {
         if (!StrayTagsClient.isActiveOnCurrentServer()) return;
         if (renderState.cachedInfo == null) return;
-        if (!(entity.getVehicle() instanceof Player player)) return;
+
+        Player player = findRidingPlayer(entity);
+        if (player == null) return;
 
         List<Display.TextDisplay.CachedLine> lines = renderState.cachedInfo.lines();
         String playerName = player.getGameProfile().name();
@@ -78,5 +82,19 @@ public abstract class EntityRendererMixin {
             renderState.cachedInfo = new Display.TextDisplay.CachedInfo(newLines, newMaxWidth);
             return;
         }
+    }
+
+    @Unique
+    private static Player findRidingPlayer(Entity entity) {
+        Entity current = entity.getVehicle();
+        int depth = 0;
+        while (current != null && depth < 5) {
+            if (current instanceof Player player) {
+                return player;
+            }
+            current = current.getVehicle();
+            depth++;
+        }
+        return null;
     }
 }
