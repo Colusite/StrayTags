@@ -11,7 +11,6 @@ import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
 import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 public class StrayTagsModMenuIntegration implements ModMenuApi {
@@ -20,6 +19,9 @@ public class StrayTagsModMenuIntegration implements ModMenuApi {
     public ConfigScreenFactory<?> getModConfigScreenFactory() {
         return parent -> {
             StrayTagsConfig config = StrayTagsConfigManager.getConfig();
+
+            StrayTagsConfig defaultConfig = StrayTagsConfig.createDefault();
+            ServerConfig defaultServerConfig = new ServerConfig();
 
             ConfigBuilder builder = ConfigBuilder.create()
                     .setParentScreen(parent)
@@ -33,14 +35,14 @@ public class StrayTagsModMenuIntegration implements ModMenuApi {
 
             general.addEntry(entryBuilder.startBooleanToggle(
                             Component.translatable("straytags.config.enabled"), config.enabled)
-                    .setDefaultValue(true)
+                    .setDefaultValue(defaultConfig.enabled)
                     .setTooltip(Component.translatable("straytags.config.enabled.tooltip"))
                     .setSaveConsumer(val -> config.enabled = val)
                     .build());
 
             general.addEntry(entryBuilder.startStrList(
                             Component.translatable("straytags.config.servers"), config.serverWhitelist)
-                    .setDefaultValue(List.of("stray.gg"))
+                    .setDefaultValue(defaultConfig.serverWhitelist)
                     .setTooltip(Component.translatable("straytags.config.servers.tooltip"))
                     .setSaveConsumer(val -> {
                         config.serverWhitelist.clear();
@@ -52,14 +54,21 @@ public class StrayTagsModMenuIntegration implements ModMenuApi {
                 String serverKey = entry.getKey();
                 ServerConfig sc = entry.getValue();
 
-                String displayName = serverKey.equals("__default__") ? "Default - Fallback" : serverKey;
+                ServerConfig defaults;
+                if (serverKey.equals("stray.gg")) {
+                    defaults = ServerConfig.createDefaultStrayConfig();
+                } else {
+                    defaults = defaultServerConfig;
+                }
+
+                String displayName = serverKey.equals("__default__") ? "Default (Fallback)" : serverKey;
 
                 ConfigCategory clansCategory = builder.getOrCreateCategory(
-                        Component.literal("§b" + displayName + " §7- Clans"));
+                        Component.literal("§b" + displayName + " §7— Clans"));
 
                 clansCategory.addEntry(entryBuilder.startStrList(
                                 Component.translatable("straytags.config.own_clans"), sc.ownClans)
-                        .setDefaultValue(new ArrayList<>())
+                        .setDefaultValue(new ArrayList<>(defaults.ownClans))
                         .setTooltip(Component.translatable("straytags.config.own_clans.tooltip"))
                         .setSaveConsumer(val -> {
                             sc.ownClans.clear();
@@ -69,7 +78,7 @@ public class StrayTagsModMenuIntegration implements ModMenuApi {
 
                 clansCategory.addEntry(entryBuilder.startStrList(
                                 Component.translatable("straytags.config.own_players"), sc.ownPlayers)
-                        .setDefaultValue(new ArrayList<>())
+                        .setDefaultValue(new ArrayList<>(defaults.ownPlayers))
                         .setTooltip(Component.translatable("straytags.config.own_players.tooltip"))
                         .setSaveConsumer(val -> {
                             sc.ownPlayers.clear();
@@ -79,7 +88,7 @@ public class StrayTagsModMenuIntegration implements ModMenuApi {
 
                 clansCategory.addEntry(entryBuilder.startStrList(
                                 Component.translatable("straytags.config.allied_clans"), sc.alliedClans)
-                        .setDefaultValue(new ArrayList<>())
+                        .setDefaultValue(new ArrayList<>(defaults.alliedClans))
                         .setTooltip(Component.translatable("straytags.config.allied_clans.tooltip"))
                         .setSaveConsumer(val -> {
                             sc.alliedClans.clear();
@@ -89,7 +98,7 @@ public class StrayTagsModMenuIntegration implements ModMenuApi {
 
                 clansCategory.addEntry(entryBuilder.startStrList(
                                 Component.translatable("straytags.config.allied_players"), sc.alliedPlayers)
-                        .setDefaultValue(new ArrayList<>())
+                        .setDefaultValue(new ArrayList<>(defaults.alliedPlayers))
                         .setTooltip(Component.translatable("straytags.config.allied_players.tooltip"))
                         .setSaveConsumer(val -> {
                             sc.alliedPlayers.clear();
@@ -99,7 +108,7 @@ public class StrayTagsModMenuIntegration implements ModMenuApi {
 
                 clansCategory.addEntry(entryBuilder.startStrList(
                                 Component.translatable("straytags.config.enemy_clans"), sc.enemyClans)
-                        .setDefaultValue(new ArrayList<>())
+                        .setDefaultValue(new ArrayList<>(defaults.enemyClans))
                         .setTooltip(Component.translatable("straytags.config.enemy_clans.tooltip"))
                         .setSaveConsumer(val -> {
                             sc.enemyClans.clear();
@@ -109,7 +118,7 @@ public class StrayTagsModMenuIntegration implements ModMenuApi {
 
                 clansCategory.addEntry(entryBuilder.startStrList(
                                 Component.translatable("straytags.config.enemy_players"), sc.enemyPlayers)
-                        .setDefaultValue(new ArrayList<>())
+                        .setDefaultValue(new ArrayList<>(defaults.enemyPlayers))
                         .setTooltip(Component.translatable("straytags.config.enemy_players.tooltip"))
                         .setSaveConsumer(val -> {
                             sc.enemyPlayers.clear();
@@ -122,37 +131,37 @@ public class StrayTagsModMenuIntegration implements ModMenuApi {
 
                 formatsCategory.addEntry(buildExpandedTextField(entryBuilder,
                         "straytags.config.own_format", sc.ownFormat,
-                        "%username% [<color:#00ff00>%clan%</color>]",
+                        defaults.ownFormat,
                         "straytags.config.own_format.tooltip",
                         val -> sc.ownFormat = val));
 
                 formatsCategory.addEntry(buildExpandedTextField(entryBuilder,
                         "straytags.config.allied_format", sc.alliedFormat,
-                        "%username% [<color:#22ff22>%clan%</color>]",
+                        defaults.alliedFormat,
                         "straytags.config.allied_format.tooltip",
                         val -> sc.alliedFormat = val));
 
                 formatsCategory.addEntry(buildExpandedTextField(entryBuilder,
                         "straytags.config.enemy_format", sc.enemyFormat,
-                        "%username% [<color:#ff0000>%clan%</color>]",
+                        defaults.enemyFormat,
                         "straytags.config.enemy_format.tooltip",
                         val -> sc.enemyFormat = val));
 
                 formatsCategory.addEntry(buildExpandedTextField(entryBuilder,
                         "straytags.config.neutral_format", sc.neutralFormat,
-                        "%username% [%clan%]",
+                        defaults.neutralFormat,
                         "straytags.config.neutral_format.tooltip",
                         val -> sc.neutralFormat = val));
 
                 formatsCategory.addEntry(buildExpandedTextField(entryBuilder,
                         "straytags.config.no_clan_format", sc.noClanFormat,
-                        "%username%",
+                        defaults.noClanFormat,
                         "straytags.config.no_clan_format.tooltip",
                         val -> sc.noClanFormat = val));
 
                 formatsCategory.addEntry(buildExpandedTextField(entryBuilder,
                         "straytags.config.name_pattern", sc.namePattern,
-                        "^(?<username>\\S+)(?:\\s+\\[(?<clan>[^\\]]+)\\])?$",
+                        defaults.namePattern,
                         "straytags.config.name_pattern.tooltip",
                         val -> sc.namePattern = val));
 
