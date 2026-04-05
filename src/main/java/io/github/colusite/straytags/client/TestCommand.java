@@ -30,81 +30,61 @@ public class TestCommand {
 
     private static void registerCommands(CommandDispatcher<FabricClientCommandSource> dispatcher,
                                          CommandBuildContext registryAccess) {
-        dispatcher.register(
-                ClientCommandManager.literal("straytags")
-                        .then(ClientCommandManager.literal("test")
-                                .then(ClientCommandManager.argument("name", StringArgumentType.greedyString())
-                                        .executes(ctx -> {
-                                            if (!StrayTagsConfigManager.getConfig().debugCommandsEnabled) {
-                                                ctx.getSource().sendFeedback(Component.literal(
-                                                        "§c[StrayTags] Debug commands are disabled. Enable them in the config."));
-                                                return 0;
-                                            }
-                                            String input = StringArgumentType.getString(ctx, "name");
-                                            return runTest(ctx.getSource(), input);
-                                        })
-                                )
-                        )
-                        .then(ClientCommandManager.literal("testuser")
-                                .executes(ctx -> {
-                                    if (!StrayTagsConfigManager.getConfig().debugCommandsEnabled) {
-                                        ctx.getSource().sendFeedback(Component.literal(
-                                                "§c[StrayTags] Debug commands are disabled. Enable them in the config."));
-                                        return 0;
-                                    }
-                                    return runTestUser(ctx.getSource(), null);
-                                })
-                                .then(ClientCommandManager.argument("player", StringArgumentType.greedyString())
-                                        .executes(ctx -> {
-                                            if (!StrayTagsConfigManager.getConfig().debugCommandsEnabled) {
-                                                ctx.getSource().sendFeedback(Component.literal(
-                                                        "§c[StrayTags] Debug commands are disabled. Enable them in the config."));
-                                                return 0;
-                                            }
-                                            String target = StringArgumentType.getString(ctx, "player");
-                                            return runTestUser(ctx.getSource(), target);
-                                        })
-                                )
-                        )
-                        .then(ClientCommandManager.literal("verbose")
-                                .executes(ctx -> {
-                                    if (!StrayTagsConfigManager.getConfig().debugCommandsEnabled) {
-                                        ctx.getSource().sendFeedback(Component.literal(
-                                                "§c[StrayTags] Debug commands are disabled. Enable them in the config."));
-                                        return 0;
-                                    }
-                                    StrayTagsClient.verboseMode = !StrayTagsClient.verboseMode;
-                                    if (StrayTagsClient.verboseMode) StrayTagsClient.clearVerboseCache();
-                                    ctx.getSource().sendFeedback(Component.literal(
-                                            "§e[StrayTags] Verbose mode: " +
-                                                    (StrayTagsClient.verboseMode ? "§aON" : "§cOFF") +
-                                                    (StrayTagsClient.verboseMode ? " §7- all nametags will be logged to chat" : "")));
-                                    return 1;
-                                })
-                        )
-                        .then(ClientCommandManager.literal("debug")
-                                .executes(ctx -> {
-                                    if (!StrayTagsConfigManager.getConfig().debugCommandsEnabled) {
-                                        ctx.getSource().sendFeedback(Component.literal(
-                                                "§c[StrayTags] Debug commands are disabled. Enable them in the config."));
-                                        return 0;
-                                    }
-                                    StrayTagsClient.debugMode = !StrayTagsClient.debugMode;
-                                    if (StrayTagsClient.debugMode) StrayTagsClient.clearVerboseCache();
-                                    ctx.getSource().sendFeedback(Component.literal(
-                                            "§e[StrayTags] Debug mode: " +
-                                                    (StrayTagsClient.debugMode ? "§aON" : "§cOFF")));
-                                    return 1;
-                                })
-                        )
-                        .then(ClientCommandManager.literal("reload")
-                                .executes(ctx -> {
-                                    StrayTagsConfigManager.load();
-                                    ctx.getSource().sendFeedback(Component.literal("§a[StrayTags] Config reloaded!"));
-                                    return 1;
-                                })
-                        )
+        var root = ClientCommandManager.literal("straytags");
+
+        root.then(ClientCommandManager.literal("reload")
+                .executes(ctx -> {
+                    StrayTagsConfigManager.load();
+                    ctx.getSource().sendFeedback(Component.literal("§a[StrayTags] Config reloaded!"));
+                    return 1;
+                })
         );
+
+        if (StrayTagsConfigManager.getConfig().debugCommandsEnabled) {
+            root.then(ClientCommandManager.literal("test")
+                    .then(ClientCommandManager.argument("name", StringArgumentType.greedyString())
+                            .executes(ctx -> {
+                                String input = StringArgumentType.getString(ctx, "name");
+                                return runTest(ctx.getSource(), input);
+                            })
+                    )
+            );
+
+            root.then(ClientCommandManager.literal("testuser")
+                    .executes(ctx -> runTestUser(ctx.getSource(), null))
+                    .then(ClientCommandManager.argument("player", StringArgumentType.greedyString())
+                            .executes(ctx -> {
+                                String target = StringArgumentType.getString(ctx, "player");
+                                return runTestUser(ctx.getSource(), target);
+                            })
+                    )
+            );
+
+            root.then(ClientCommandManager.literal("verbose")
+                    .executes(ctx -> {
+                        StrayTagsClient.verboseMode = !StrayTagsClient.verboseMode;
+                        if (StrayTagsClient.verboseMode) StrayTagsClient.clearVerboseCache();
+                        ctx.getSource().sendFeedback(Component.literal(
+                                "§e[StrayTags] Verbose mode: " +
+                                        (StrayTagsClient.verboseMode ? "§aON" : "§cOFF") +
+                                        (StrayTagsClient.verboseMode ? " §7- all nametags will be logged to chat" : "")));
+                        return 1;
+                    })
+            );
+
+            root.then(ClientCommandManager.literal("debug")
+                    .executes(ctx -> {
+                        StrayTagsClient.debugMode = !StrayTagsClient.debugMode;
+                        if (StrayTagsClient.debugMode) StrayTagsClient.clearVerboseCache();
+                        ctx.getSource().sendFeedback(Component.literal(
+                                "§e[StrayTags] Debug mode: " +
+                                        (StrayTagsClient.debugMode ? "§aON" : "§cOFF")));
+                        return 1;
+                    })
+            );
+        }
+
+        dispatcher.register(root);
     }
 
     private static int runTestUser(FabricClientCommandSource source, String targetName) {
