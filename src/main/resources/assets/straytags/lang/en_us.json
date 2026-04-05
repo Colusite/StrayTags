@@ -30,5 +30,17 @@
   "straytags.config.no_clan_format": "No Clan Format",
   "straytags.config.no_clan_format.tooltip": "MiniMessage format for players without a clan",
   "straytags.config.name_pattern": "Name Pattern (Regex)",
-  "straytags.config.name_pattern.tooltip": "Regex pattern to parse nametags. Must have named groups: username, clan (optional), rank (optional)"
+  "straytags.config.name_pattern.tooltip": "Regex pattern to parse nametags. Must have named groups: username, clan (optional), rank (optional)",
+  "straytags.config.export_clans": "Export Clans Code (copy this)",
+  "straytags.config.export_clans.tooltip": "Copy this code and send it to another player. They can paste it into the Import field to get your clan lists.",
+  "straytags.config.import_clans": "Import Clans Code (paste here)",
+  "straytags.config.import_clans.tooltip": "Paste a clan export code here and click Save to import the clan lists. This will overwrite your current clans.",
+  "straytags.config.export_formats": "Export Formats Code (copy this)",
+  "straytags.config.export_formats.tooltip": "Copy this code and send it to another player. They can paste it into the Import field to get your format strings.",
+  "straytags.config.import_formats": "Import Formats Code (paste here)",
+  "straytags.config.import_formats.tooltip": "Paste a format export code here and click Save to import the formats. This will overwrite your current formats.",
+  "straytags.config.export_full": "Export Full Config Code (copy this)",
+  "straytags.config.export_full.tooltip": "Copy this code and send it to another player. They can paste it into the Import field to get your entire server config.",
+  "straytags.config.import_full": "Import Full Config Code (paste here)",
+  "straytags.config.import_full.tooltip": "Paste a full config export code here and click Save to import everything. This will overwrite your current clans AND formats."
 }

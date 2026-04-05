@@ -1,6 +1,7 @@
 package io.github.colusite.straytags.client.modmenu;
 
 import com.terraformersmc.modmenu.api.ConfigScreenFactory;
+import io.github.colusite.straytags.client.config.ConfigShareUtil;
 import io.github.colusite.straytags.client.config.ServerConfig;
 import io.github.colusite.straytags.client.config.StrayTagsConfig;
 import io.github.colusite.straytags.client.config.StrayTagsConfigManager;
@@ -14,6 +15,7 @@ import net.minecraft.network.chat.MutableComponent;
 
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.function.Consumer;
 
 public class StrayTagsConfigScreenBuilder {
 
@@ -139,6 +141,45 @@ public class StrayTagsConfigScreenBuilder {
                         })
                         .build());
 
+                clansCategory.addEntry(entryBuilder.startTextDescription(
+                        Component.literal("")
+                ).build());
+
+                clansCategory.addEntry(entryBuilder.startTextDescription(
+                        Component.literal("§e§lImport / Export Clans")
+                ).build());
+
+                clansCategory.addEntry(entryBuilder.startTextField(
+                                Component.translatable("straytags.config.export_clans"),
+                                ConfigShareUtil.exportClansOnly(sc))
+                        .setDefaultValue("")
+                        .setTooltip(
+                                Component.translatable("straytags.config.export_clans.tooltip")
+                        )
+                        .setSaveConsumer(val -> {})
+                        .build());
+
+                final ServerConfig scRef = sc;
+                clansCategory.addEntry(entryBuilder.startTextField(
+                                Component.translatable("straytags.config.import_clans"), "")
+                        .setDefaultValue("")
+                        .setTooltip(
+                                Component.translatable("straytags.config.import_clans.tooltip")
+                        )
+                        .setSaveConsumer(val -> {
+                            if (val != null && !val.isBlank()) {
+                                String error = ConfigShareUtil.importConfig(val, scRef);
+                                if (error != null) {
+                                    Minecraft mc = Minecraft.getInstance();
+                                    if (mc.player != null) {
+                                        mc.player.displayClientMessage(
+                                                Component.literal("§c[StrayTags] Import failed: " + error), false);
+                                    }
+                                }
+                            }
+                        })
+                        .build());
+
                 ConfigCategory formatsCategory = builder.getOrCreateCategory(
                         Component.literal("§d" + displayName + " §7- Formats"));
 
@@ -168,14 +209,89 @@ public class StrayTagsConfigScreenBuilder {
                         val -> sc.noClanFormat = val);
 
                 formatsCategory.addEntry(buildExpandedTextField(entryBuilder,
-                        "straytags.config.name_pattern", sc.namePattern,
+                        sc.namePattern,
                         defaults.namePattern,
-                        "straytags.config.name_pattern.tooltip",
                         val -> sc.namePattern = val));
 
                 formatsCategory.addEntry(entryBuilder.startTextDescription(
                         Component.literal("§7§oLeave a format blank to keep the original nametag for that category.")
                 ).build());
+
+                formatsCategory.addEntry(entryBuilder.startTextDescription(
+                        Component.literal("")
+                ).build());
+
+                formatsCategory.addEntry(entryBuilder.startTextDescription(
+                        Component.literal("§e§lImport / Export Formats")
+                ).build());
+
+                formatsCategory.addEntry(entryBuilder.startTextField(
+                                Component.translatable("straytags.config.export_formats"),
+                                ConfigShareUtil.exportFormatsOnly(sc))
+                        .setDefaultValue("")
+                        .setTooltip(
+                                Component.translatable("straytags.config.export_formats.tooltip")
+                        )
+                        .setSaveConsumer(val -> {})
+                        .build());
+
+                formatsCategory.addEntry(entryBuilder.startTextField(
+                                Component.translatable("straytags.config.import_formats"), "")
+                        .setDefaultValue("")
+                        .setTooltip(
+                                Component.translatable("straytags.config.import_formats.tooltip")
+                        )
+                        .setSaveConsumer(val -> {
+                            if (val != null && !val.isBlank()) {
+                                String error = ConfigShareUtil.importConfig(val, scRef);
+                                if (error != null) {
+                                    Minecraft mc = Minecraft.getInstance();
+                                    if (mc.player != null) {
+                                        mc.player.displayClientMessage(
+                                                Component.literal("§c[StrayTags] Import failed: " + error), false);
+                                    }
+                                }
+                            }
+                        })
+                        .build());
+
+                formatsCategory.addEntry(entryBuilder.startTextDescription(
+                        Component.literal("")
+                ).build());
+
+                formatsCategory.addEntry(entryBuilder.startTextDescription(
+                        Component.literal("§e§lImport / Export Full Server Config")
+                ).build());
+
+                formatsCategory.addEntry(entryBuilder.startTextField(
+                                Component.translatable("straytags.config.export_full"),
+                                ConfigShareUtil.exportConfig(sc))
+                        .setDefaultValue("")
+                        .setTooltip(
+                                Component.translatable("straytags.config.export_full.tooltip")
+                        )
+                        .setSaveConsumer(val -> {})
+                        .build());
+
+                formatsCategory.addEntry(entryBuilder.startTextField(
+                                Component.translatable("straytags.config.import_full"), "")
+                        .setDefaultValue("")
+                        .setTooltip(
+                                Component.translatable("straytags.config.import_full.tooltip")
+                        )
+                        .setSaveConsumer(val -> {
+                            if (val != null && !val.isBlank()) {
+                                String error = ConfigShareUtil.importConfig(val, scRef);
+                                if (error != null) {
+                                    Minecraft mc = Minecraft.getInstance();
+                                    if (mc.player != null) {
+                                        mc.player.displayClientMessage(
+                                                Component.literal("§c[StrayTags] Import failed: " + error), false);
+                                    }
+                                }
+                            }
+                        })
+                        .build());
             }
 
             return builder.build();
@@ -191,10 +307,20 @@ public class StrayTagsConfigScreenBuilder {
             String defaultValue,
             String tooltipKey,
             String categoryLabel,
-            java.util.function.Consumer<String> saveConsumer
+            Consumer<String> saveConsumer
     ) {
-        category.addEntry(buildExpandedTextField(entryBuilder,
-                translationKey, currentValue, defaultValue, tooltipKey, saveConsumer));
+        category.addEntry(entryBuilder.startTextField(
+                        Component.translatable(translationKey), currentValue)
+                .setDefaultValue(defaultValue)
+                .setTooltip(
+                        Component.translatable(tooltipKey),
+                        Component.literal(""),
+                        Component.literal("§7Placeholders: §f%username% %clan% %rank%"),
+                        Component.literal("§7MiniMessage: §f<color:#hex>text</color> <bold> <italic>"),
+                        Component.literal("§7Leave blank to keep original nametag.")
+                )
+                .setSaveConsumer(saveConsumer)
+                .build());
 
         Component preview;
         if (currentValue == null || currentValue.isBlank()) {
@@ -217,17 +343,15 @@ public class StrayTagsConfigScreenBuilder {
 
     private static me.shedaniel.clothconfig2.api.AbstractConfigListEntry<?> buildExpandedTextField(
             ConfigEntryBuilder entryBuilder,
-            String translationKey,
             String currentValue,
             String defaultValue,
-            String tooltipKey,
-            java.util.function.Consumer<String> saveConsumer
+            Consumer<String> saveConsumer
     ) {
         return entryBuilder.startTextField(
-                        Component.translatable(translationKey), currentValue)
+                        Component.translatable("straytags.config.name_pattern"), currentValue)
                 .setDefaultValue(defaultValue)
                 .setTooltip(
-                        Component.translatable(tooltipKey),
+                        Component.translatable("straytags.config.name_pattern.tooltip"),
                         Component.literal(""),
                         Component.literal("§7Placeholders: §f%username% %clan% %rank%"),
                         Component.literal("§7MiniMessage: §f<color:#hex>text</color> <bold> <italic>"),
