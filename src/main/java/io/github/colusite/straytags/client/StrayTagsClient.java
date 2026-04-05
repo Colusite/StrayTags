@@ -220,18 +220,16 @@ public class StrayTagsClient implements ClientModInitializer {
     }
 
     public static String getFormatForCategory(ServerConfig serverConfig, ClanCategory category, String clan) {
-        String format;
-        if (clan == null || clan.isEmpty()) {
-            format = serverConfig.noClanFormat;
-        } else {
-            format = switch (category) {
-                case OWN -> serverConfig.ownFormat;
-                case ALLIED -> serverConfig.alliedFormat;
-                case ENEMY -> serverConfig.enemyFormat;
-                case NEUTRAL -> serverConfig.neutralFormat;
-            };
+        if ((clan == null || clan.isEmpty()) && category == ClanCategory.NEUTRAL) {
+            return serverConfig.noClanFormat;
         }
-        return format;
+
+        return switch (category) {
+            case OWN -> serverConfig.ownFormat;
+            case ALLIED -> serverConfig.alliedFormat;
+            case ENEMY -> serverConfig.enemyFormat;
+            case NEUTRAL -> serverConfig.neutralFormat;
+        };
     }
 
     public static Component processDisplayName(Component original) {
