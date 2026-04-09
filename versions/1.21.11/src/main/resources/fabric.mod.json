@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "straytags",
+  "version": "${version}",
+  "name": "StrayTags",
+  "description": "Tired of clan leaders changing their tag clan tag colour every 5 minutes?",
+  "authors": [
+    "Colusite"
+  ],
+  "license": "MIT",
+  "icon": "assets/straytags/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "io.github.colusite.straytags.client.StrayTagsClient"
+    ],
+    "modmenu": [
+      "io.github.colusite.straytags.client.modmenu.StrayTagsModMenuIntegration"
+    ]
+  },
+  "mixins": [
+    "straytags.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "cloth-config": "*",
+    "modmenu": "*"
+  }
+}

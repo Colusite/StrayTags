@@ -1,9 +1,15 @@
 pluginManagement {
     repositories {
         maven { url = "https://maven.fabricmc.net/" }
-        mavenCentral()
         gradlePluginPortal()
+        mavenCentral()
     }
 }
 
-rootProject.name = "straytags"
+rootProject.name = "StrayTags"
+
+["1.21", "1.21.4", "1.21.8", "1.21.11"].each { ver ->
+    def safeName = "mc-${ver}"
+    include ":${safeName}"
+    project(":${safeName}").projectDir = file("versions/${ver}")
+}

@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "io.github.colusite.straytags.client.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "EntityRendererMixin",
+    "TextDisplayAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
