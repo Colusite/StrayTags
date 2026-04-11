@@ -1,5 +1,5 @@
 <img width="2560" height="1440" alt="image" src="https://github.com/user-attachments/assets/97fb038b-e154-4d1d-833f-44dbc6555def" />
-<img width="2560" height="1440" alt="image" src="https://github.com/user-attachments/assets/f59f2a3a-9380-49f6-b924-eab85c7f80ee" />
+<img width="1193" height="671" alt="image" src="https://github.com/user-attachments/assets/628c5796-d7c5-412b-bc5f-ca20bc48e2f0" />
 
 # Stray Tags
 ## Only tested on 1.21.11 Fabric 0.141.3 Loader 0.18.4
@@ -53,3 +53,4 @@ Cloth Config + Mod Menu integration for in game editing\
 Server whitelist with per server clan lists and format overrides\
 Default stray.gg config with pre-populated clan/player lists for Latte\
 `__default__` fallback config for any whitelisted server without its own config
+<img width="2560" height="1440" alt="image" src="https://github.com/user-attachments/assets/f59f2a3a-9380-49f6-b924-eab85c7f80ee" />
