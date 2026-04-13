@@ -55,6 +55,13 @@ public class StrayTagsConfigScreenBuilder {
                     .setSaveConsumer(val -> config.debugCommandsEnabled = val)
                     .build());
 
+            for (String whitelisted : config.serverWhitelist) {
+                if (whitelisted == null || whitelisted.isBlank()) continue;
+                if (!config.serverConfigs.containsKey(whitelisted)) {
+                    config.serverConfigs.put(whitelisted, new ServerConfig());
+                }
+            }
+
             general.addEntry(entryBuilder.startStrList(
                             Component.translatable("straytags.config.servers"), config.serverWhitelist)
                     .setDefaultValue(defaultConfig.serverWhitelist)
