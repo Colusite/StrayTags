@@ -69,6 +69,12 @@ public class StrayTagsConfigScreenBuilder {
                     .setSaveConsumer(val -> {
                         config.serverWhitelist.clear();
                         config.serverWhitelist.addAll(val);
+                        for (String host : val) {
+                            if (host == null || host.isBlank()) continue;
+                            if (!config.serverConfigs.containsKey(host)) {
+                                config.serverConfigs.put(host, new ServerConfig());
+                            }
+                        }
                     })
                     .build());
 
