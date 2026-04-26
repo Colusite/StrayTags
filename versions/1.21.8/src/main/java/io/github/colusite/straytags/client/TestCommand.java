@@ -2,9 +2,9 @@ package io.github.colusite.straytags.client;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import io.github.colusite.straytags.client.config.ClanCategory;
 import io.github.colusite.straytags.client.config.ServerConfig;
 import io.github.colusite.straytags.client.config.StrayTagsConfigManager;
+import io.github.colusite.straytags.client.config.TagCategory;
 import io.github.colusite.straytags.client.minimessage.MiniMessageParser;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -166,14 +166,15 @@ public class TestCommand {
                         } else {
                             String username = safeGroup(matcher, "username");
                             String clan = safeGroup(matcher, "clan");
-                            ClanCategory cat = StrayTagsClient.categorize(serverConfig, username, clan);
+                            TagCategory cat = serverConfig.findCategory(username, clan);
+                            String catName = cat != null ? cat.name : (clan != null && !clan.isEmpty() ? "NEUTRAL" : "NO_CLAN");
 
                             source.sendFeedback(Component.literal("§a    MATCH!"));
                             source.sendFeedback(Component.literal(" §7user=§f" + (username != null ? username : "(none)")
                                     + " §7clan=§f" + (clan != null ? clan : "(none)")));
-                            source.sendFeedback(Component.literal("§7    category=§f" + cat.name()));
+                            source.sendFeedback(Component.literal("§7    category=§f" + catName));
 
-                            String format = StrayTagsClient.getFormatForCategory(serverConfig, cat, clan);
+                            String format = serverConfig.getFormat(username, clan);
 
                             if (format == null || format.isBlank()) {
                                 source.sendFeedback(Component.literal("§7    format=§f(blank - won't modify)"));
@@ -226,15 +227,16 @@ public class TestCommand {
 
             String username = safeGroup(matcher, "username");
             String clan = safeGroup(matcher, "clan");
-            ClanCategory category = StrayTagsClient.categorize(serverConfig, username, clan);
+            TagCategory cat = serverConfig.findCategory(username, clan);
+            String catName = cat != null ? cat.name : (clan != null && !clan.isEmpty() ? "NEUTRAL" : "NO_CLAN");
 
             source.sendFeedback(Component.literal("§e[StrayTags] §7Parse results:"));
             source.sendFeedback(Component.literal("  §7Input: §f" + cleaned));
             source.sendFeedback(Component.literal("  §7Username: §f" + (username != null ? username : "(none)")));
             source.sendFeedback(Component.literal("  §7Clan: §f" + (clan != null ? clan : "(none)")));
-            source.sendFeedback(Component.literal("  §7Category: §f" + category.name()));
+            source.sendFeedback(Component.literal("  §7Category: §f" + catName));
 
-            String format = StrayTagsClient.getFormatForCategory(serverConfig, category, clan);
+            String format = serverConfig.getFormat(username, clan);
 
             if (format == null || format.isBlank()) {
                 source.sendFeedback(Component.literal("  §7Format: §f(blank - won't modify)"));
@@ -255,6 +257,19 @@ public class TestCommand {
         try {
             return matcher.group(groupName);
         } catch (IllegalArgumentException e) {
+            try {
+                String pat = matcher.pattern().pattern();
+                Pattern gp = Pattern.compile("\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>");
+                Matcher gm = gp.matcher(pat);
+                java.util.List<String> names = new java.util.ArrayList<>();
+                while (gm.find()) names.add(gm.group(1));
+                int idx = "username".equals(groupName) ? 0 : ("clan".equals(groupName) ? 1 : -1);
+                if (idx >= 0 && idx < names.size()) {
+                    try {
+                        return matcher.group(names.get(idx));
+                    } catch (IllegalArgumentException ignored) {}
+                }
+            } catch (Exception ignored) {}
             return null;
         }
     }
