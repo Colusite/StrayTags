@@ -37,6 +37,24 @@ public class StrayTagsConfigManager {
                 if (!config.serverConfigs.containsKey("__default__")) {
                     config.serverConfigs.put("__default__", new ServerConfig());
                 }
+                // Migrate legacy configs
+                boolean migrated = false;
+                for (ServerConfig sc : config.serverConfigs.values()) {
+                    if (sc.hasLegacyData()) {
+                        sc.migrateLegacy();
+                        migrated = true;
+                    }
+                }
+                for (ServerConfig sc : config.serverConfigs.values()) {
+                    for (TagCategory cat : sc.categories) {
+                        if (cat.ensureId()) migrated = true;
+                        if (cat.migrateLegacyLists()) migrated = true;
+                    }
+                }
+                if (migrated) {
+                    LOGGER.info("[StrayTags] Migrated config (legacy format or missing ids)");
+                    save();
+                }
                 LOGGER.info("[StrayTags] Configuration loaded from {}", configPath);
             } catch (Exception e) {
                 LOGGER.error("[StrayTags] Failed to load config, using defaults", e);
