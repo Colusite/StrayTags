@@ -1,9 +1,9 @@
 package io.github.colusite.straytags.client;
 
-import io.github.colusite.straytags.client.config.ClanCategory;
 import io.github.colusite.straytags.client.config.ServerConfig;
 import io.github.colusite.straytags.client.config.StrayTagsConfig;
 import io.github.colusite.straytags.client.config.StrayTagsConfigManager;
+import io.github.colusite.straytags.client.config.TagCategory;
 import io.github.colusite.straytags.client.minimessage.MiniMessageParser;
 import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.Minecraft;
@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -60,34 +61,6 @@ public class StrayTagsClient implements ClientModInitializer {
         String serverAddress = getCurrentServerAddress();
         if (!config.isServerWhitelisted(serverAddress)) return null;
         return config.getServerConfig(serverAddress);
-    }
-
-    public static ClanCategory categorize(ServerConfig serverConfig, String username, String clan) {
-        if (username != null && !username.isEmpty()) {
-            for (String p : serverConfig.ownPlayers) {
-                if (p.equalsIgnoreCase(username)) return ClanCategory.OWN;
-            }
-            for (String p : serverConfig.alliedPlayers) {
-                if (p.equalsIgnoreCase(username)) return ClanCategory.ALLIED;
-            }
-            for (String p : serverConfig.enemyPlayers) {
-                if (p.equalsIgnoreCase(username)) return ClanCategory.ENEMY;
-            }
-        }
-
-        if (clan != null && !clan.isEmpty()) {
-            for (String c : serverConfig.ownClans) {
-                if (c.equalsIgnoreCase(clan)) return ClanCategory.OWN;
-            }
-            for (String c : serverConfig.alliedClans) {
-                if (c.equalsIgnoreCase(clan)) return ClanCategory.ALLIED;
-            }
-            for (String c : serverConfig.enemyClans) {
-                if (c.equalsIgnoreCase(clan)) return ClanCategory.ENEMY;
-            }
-        }
-
-        return ClanCategory.NEUTRAL;
     }
 
     public static String stripFormattingCodes(String input) {
@@ -190,9 +163,10 @@ public class StrayTagsClient implements ClientModInitializer {
                 } else {
                     String username = safeGroup(matcher, "username");
                     String clan = safeGroup(matcher, "clan");
-                    ClanCategory cat = categorize(serverConfig, username, clan);
 
-                    String format = getFormatForCategory(serverConfig, cat, clan);
+                    String format = serverConfig.getFormat(username, clan, getCurrentServerAddress());
+                    TagCategory cat = serverConfig.findCategory(username, clan, getCurrentServerAddress());
+                    String catName = cat != null ? cat.name : (clan != null && !clan.isEmpty() ? "NEUTRAL" : "NO_CLAN");
 
                     if (format == null || format.isBlank()) {
                         client.player.displayClientMessage(
@@ -206,7 +180,7 @@ public class StrayTagsClient implements ClientModInitializer {
                             Component.literal("§e[ST]   §7user=§f" + (username != null ? username : "(none)")
                                     + " §7clan=§f" + (clan != null ? clan : "(none)")), false);
                     client.player.displayClientMessage(
-                            Component.literal("§e[ST]   §7cat=§f" + cat.name()
+                            Component.literal("§e[ST]   §7cat=§f" + catName
                                     + " §7fmt=§f" + format), false);
                 }
             } catch (Exception ignored) {}
@@ -215,19 +189,6 @@ public class StrayTagsClient implements ClientModInitializer {
 
     public static void clearVerboseCache() {
         verboseLoggedNames.clear();
-    }
-
-    public static String getFormatForCategory(ServerConfig serverConfig, ClanCategory category, String clan) {
-        if ((clan == null || clan.isEmpty()) && category == ClanCategory.NEUTRAL) {
-            return serverConfig.noClanFormat;
-        }
-
-        return switch (category) {
-            case OWN -> serverConfig.ownFormat;
-            case ALLIED -> serverConfig.alliedFormat;
-            case ENEMY -> serverConfig.enemyFormat;
-            case NEUTRAL -> serverConfig.neutralFormat;
-        };
     }
 
     public static Component processDisplayName(Component original) {
@@ -242,38 +203,101 @@ public class StrayTagsClient implements ClientModInitializer {
         String plainName = cleanForMatching(rawString);
         if (plainName == null || plainName.isEmpty()) return null;
 
+        String serverAddress = getCurrentServerAddress();
+
         try {
-            Pattern pattern = Pattern.compile(serverConfig.namePattern);
-            Matcher matcher = pattern.matcher(plainName);
+            for (TagCategory cat : serverConfig.categories) {
+                if (!cat.appliesToServer(serverAddress)) continue;
+                String override = cat.getEffectiveNamePattern();
+                if (override == null) continue;
 
-            if (!matcher.matches()) return null;
+                Pattern catPattern = Pattern.compile(override);
+                Matcher catMatcher = catPattern.matcher(plainName);
+                if (!catMatcher.matches()) continue;
 
-            String username = safeGroup(matcher, "username");
-            String clan = safeGroup(matcher, "clan");
+                java.util.Map<String, String> matches = extractAllNamedGroups(catPattern, catMatcher);
+                if (matches.isEmpty()) continue;
 
-            if (username == null || username.isEmpty()) return null;
+                List<String> regexGroupNames = new java.util.ArrayList<>(matches.keySet());
+                List<String> order = cat.effectiveMatchOrder(regexGroupNames);
+                boolean hit = false;
+                for (String groupName : order) {
+                    String matched = matches.get(groupName);
+                    if (matched == null || matched.isEmpty()) continue;
+                    for (String entry : cat.getGroup(groupName)) {
+                        if (entry.equalsIgnoreCase(matched)) { hit = true; break; }
+                    }
+                    if (hit) break;
+                }
 
-            ClanCategory category = categorize(serverConfig, username, clan);
+                if (hit) {
+                    String format = cat.format;
+                    if (format == null || format.isBlank()) return null;
+                    return MiniMessageParser.parse(format, matches);
+                }
+            }
 
-            String format = getFormatForCategory(serverConfig, category, clan);
+            Pattern defaultPattern = Pattern.compile(serverConfig.namePattern);
+            Matcher defaultMatcher = defaultPattern.matcher(plainName);
+            if (!defaultMatcher.matches()) return null;
+
+            java.util.Map<String, String> matches = extractAllNamedGroups(defaultPattern, defaultMatcher);
+            if (matches.isEmpty()) return null;
+
+            List<String> regexGroupNames = new java.util.ArrayList<>(matches.keySet());
+            TagCategory matchingCat = serverConfig.findCategory(matches, regexGroupNames, serverAddress);
+
+            String format;
+            if (matchingCat != null) {
+                format = matchingCat.format;
+            } else {
+                String secondGroup = regexGroupNames.size() >= 2 ? matches.get(regexGroupNames.get(1)) : null;
+                format = (secondGroup == null || secondGroup.isEmpty())
+                        ? serverConfig.noClanFormat
+                        : serverConfig.neutralFormat;
+            }
 
             if (format == null || format.isBlank()) return null;
-
-            return MiniMessageParser.parse(
-                    format,
-                    username,
-                    clan != null ? clan : ""
-            );
+            return MiniMessageParser.parse(format, matches);
         } catch (Exception e) {
             LOGGER.debug("[StrayTags] Failed to process display name '{}': {}", plainName, e.getMessage());
             return null;
         }
     }
 
+    private static java.util.Map<String, String> extractAllNamedGroups(Pattern pattern, Matcher matcher) {
+        java.util.Map<String, String> result = new java.util.LinkedHashMap<>();
+        try {
+            Pattern groupNamePattern = Pattern.compile("\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>");
+            Matcher gm = groupNamePattern.matcher(pattern.pattern());
+            while (gm.find()) {
+                String groupName = gm.group(1);
+                try {
+                    String val = matcher.group(groupName);
+                    if (val != null) result.put(groupName, val);
+                } catch (IllegalArgumentException ignored) {}
+            }
+        } catch (Exception ignored) {}
+        return result;
+    }
+
     private static String safeGroup(Matcher matcher, String groupName) {
         try {
             return matcher.group(groupName);
         } catch (IllegalArgumentException e) {
+            try {
+                String pattern = matcher.pattern().pattern();
+                java.util.regex.Pattern groupNameP = java.util.regex.Pattern.compile("\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>");
+                Matcher gm = groupNameP.matcher(pattern);
+                java.util.List<String> names = new java.util.ArrayList<>();
+                while (gm.find()) names.add(gm.group(1));
+                int idx = "username".equals(groupName) ? 0 : ("clan".equals(groupName) ? 1 : -1);
+                if (idx >= 0 && idx < names.size()) {
+                    try {
+                        return matcher.group(names.get(idx));
+                    } catch (IllegalArgumentException ignored) {}
+                }
+            } catch (Exception ignored) {}
             return null;
         }
     }
