@@ -1,4 +1,21 @@
 subprojects {
     group = "io.github.colusite"
-    version = "0.0.5b"
+    version = "0.1.0"
+}
+
+tasks.register("collectJars", Copy) {
+    subprojects.each { sub ->
+        dependsOn sub.tasks.matching { it.name == "remapJar" }
+        from(sub.file("build/libs")) {
+            include "*.jar"
+            exclude "*-dev.jar", "*-sources.jar"
+        }
+    }
+    into rootProject.file("build/libs")
+}
+
+tasks.register("buildAll") {
+    group = "build"
+    description = "Builds all version subprojects and collects jars to root build/libs"
+    dependsOn "collectJars"
 }
