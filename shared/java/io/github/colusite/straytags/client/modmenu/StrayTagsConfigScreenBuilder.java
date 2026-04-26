@@ -1,376 +1,507 @@
 package io.github.colusite.straytags.client.modmenu;
 
-import com.terraformersmc.modmenu.api.ConfigScreenFactory;
+import dev.isxander.yacl3.api.ButtonOption;
+import dev.isxander.yacl3.api.ConfigCategory;
+import dev.isxander.yacl3.api.LabelOption;
+import dev.isxander.yacl3.api.ListOption;
+import dev.isxander.yacl3.api.Option;
+import dev.isxander.yacl3.api.OptionDescription;
+import dev.isxander.yacl3.api.OptionGroup;
+import dev.isxander.yacl3.api.YetAnotherConfigLib;
+import dev.isxander.yacl3.api.controller.StringControllerBuilder;
+import dev.isxander.yacl3.api.controller.TickBoxControllerBuilder;
+import dev.isxander.yacl3.gui.YACLScreen;
+import io.github.colusite.straytags.client.compat.IconFont;
 import io.github.colusite.straytags.client.config.ConfigShareUtil;
 import io.github.colusite.straytags.client.config.ServerConfig;
 import io.github.colusite.straytags.client.config.StrayTagsConfig;
 import io.github.colusite.straytags.client.config.StrayTagsConfigManager;
+import io.github.colusite.straytags.client.config.TagCategory;
 import io.github.colusite.straytags.client.minimessage.MiniMessageParser;
-import me.shedaniel.clothconfig2.api.ConfigBuilder;
-import me.shedaniel.clothconfig2.api.ConfigCategory;
-import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.tabs.Tab;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class StrayTagsConfigScreenBuilder {
 
-    public static ConfigScreenFactory<?> create() {
-        return parent -> {
-            StrayTagsConfig config = StrayTagsConfigManager.getConfig();
+    public static Screen create(Screen parent) {
+        return create(parent, -1);
+    }
 
-            StrayTagsConfig defaultConfig = StrayTagsConfig.createDefault();
-            ServerConfig defaultServerConfig = new ServerConfig();
+    private static Screen create(Screen parent, int targetTabIndex) {
+        StrayTagsConfig config = StrayTagsConfigManager.getConfig();
+        boolean advanced = config.advancedMode;
 
-            String previewUsername;
-            Minecraft client = Minecraft.getInstance();
-            previewUsername = client.getUser().getName();
-            final String playerName = previewUsername;
+        Minecraft client = Minecraft.getInstance();
+        final String playerName = client.getUser().getName();
 
-            ConfigBuilder builder = ConfigBuilder.create()
-                    .setParentScreen(parent)
-                    .setTitle(Component.translatable("straytags.config.title"))
-                    .setSavingRunnable(StrayTagsConfigManager::save);
+        YetAnotherConfigLib.Builder yaclBuilder = YetAnotherConfigLib.createBuilder()
+                .title(Component.literal("StrayTags"));
 
-            ConfigEntryBuilder entryBuilder = builder.entryBuilder();
-
-            ConfigCategory general = builder.getOrCreateCategory(
-                    Component.translatable("straytags.config.category.general"));
-
-            general.addEntry(entryBuilder.startBooleanToggle(
-                            Component.translatable("straytags.config.enabled"), config.enabled)
-                    .setDefaultValue(defaultConfig.enabled)
-                    .setTooltip(Component.translatable("straytags.config.enabled.tooltip"))
-                    .setSaveConsumer(val -> config.enabled = val)
-                    .build());
-
-            general.addEntry(entryBuilder.startBooleanToggle(
-                            Component.translatable("straytags.config.debug_commands"), config.debugCommandsEnabled)
-                    .setDefaultValue(defaultConfig.debugCommandsEnabled)
-                    .setTooltip(Component.translatable("straytags.config.debug_commands.tooltip"))
-                    .setSaveConsumer(val -> config.debugCommandsEnabled = val)
-                    .build());
-
-            for (String whitelisted : config.serverWhitelist) {
-                if (whitelisted == null || whitelisted.isBlank()) continue;
-                if (!config.serverConfigs.containsKey(whitelisted)) {
-                    config.serverConfigs.put(whitelisted, new ServerConfig());
+        if (targetTabIndex >= 0) {
+            yaclBuilder.screenInit(screen -> {
+                if (screen.tabNavigationBar != null
+                        && targetTabIndex < screen.tabNavigationBar.getTabs().size()) {
+                    screen.tabNavigationBar.selectTab(targetTabIndex, false);
                 }
-            }
+            });
+        }
 
-            general.addEntry(entryBuilder.startStrList(
-                            Component.translatable("straytags.config.servers"), config.serverWhitelist)
-                    .setDefaultValue(defaultConfig.serverWhitelist)
-                    .setTooltip(Component.translatable("straytags.config.servers.tooltip"))
-                    .setSaveConsumer(val -> {
-                        config.serverWhitelist.clear();
-                        config.serverWhitelist.addAll(val);
-                        for (String host : val) {
-                            if (host == null || host.isBlank()) continue;
-                            if (!config.serverConfigs.containsKey(host)) {
-                                config.serverConfigs.put(host, new ServerConfig());
-                            }
-                        }
+        // General
+        ConfigCategory.Builder generalCat = ConfigCategory.createBuilder()
+                .name(Component.literal("General"));
+
+        generalCat.option(Option.<Boolean>createBuilder()
+                .name(Component.literal("Enabled"))
+                .description(OptionDescription.of(Component.literal("Enable or disable StrayTags")))
+                .binding(true, () -> config.enabled, v -> config.enabled = v)
+                .controller(TickBoxControllerBuilder::create).build());
+
+        generalCat.option(Option.<Boolean>createBuilder()
+                .name(Component.literal("Enable Debug Commands"))
+                .description(OptionDescription.of(Component.literal(
+                        "Enable /straytags test, testuser, verbose, and debug commands.")))
+                .binding(false, () -> config.debugCommandsEnabled, v -> config.debugCommandsEnabled = v)
+                .controller(TickBoxControllerBuilder::create).build());
+
+        generalCat.option(Option.<Boolean>createBuilder()
+                .name(Component.literal("Enable Advanced Options"))
+                .description(OptionDescription.of(Component.literal(
+                        "Show advanced options. Save and reopen to apply.")))
+                .binding(false, () -> config.advancedMode, v -> config.advancedMode = v)
+                .controller(TickBoxControllerBuilder::create).build());
+
+        ListOption<String> serverList = ListOption.<String>createBuilder()
+                .name(Component.literal("Server Whitelist"))
+                .description(OptionDescription.of(Component.literal("Servers where StrayTags is active")))
+                .binding(new ArrayList<>(), () -> new ArrayList<>(config.serverWhitelist), v -> {
+                    config.serverWhitelist.clear();
+                    config.serverWhitelist.addAll(v);
+                })
+                .controller(StringControllerBuilder::create)
+                .initial("").build();
+        generalCat.group(serverList);
+
+        yaclBuilder.category(generalCat.build());
+
+        // Per Server
+        for (Map.Entry<String, ServerConfig> entry : config.serverConfigs.entrySet()) {
+            String serverKey = entry.getKey();
+            final ServerConfig sc = entry.getValue();
+            String displayName = serverKey.equals("__default__") ? "Default (Fallback)" : serverKey;
+
+            ServerConfig defaults = serverKey.equals("stray.gg")
+                    ? ServerConfig.createDefaultStrayConfig()
+                    : new ServerConfig();
+
+            ConfigCategory.Builder serverCat = ConfigCategory.createBuilder()
+                    .name(Component.literal(displayName));
+
+            serverCat.option(ButtonOption.createBuilder()
+                    .name(Component.literal("§a✚ Add New Category"))
+                    .description(OptionDescription.of(Component.literal(
+                            "Click to add a new empty category. Edit it after creating.")))
+                    .action((screen, opt) -> {
+                        sc.categories.add(new TagCategory("New Category", ""));
+                        StrayTagsConfigManager.save();
+                        rebuild(screen, parent);
                     })
                     .build());
 
-            for (Map.Entry<String, ServerConfig> entry : config.serverConfigs.entrySet()) {
-                String serverKey = entry.getKey();
-                ServerConfig sc = entry.getValue();
+            // Determine active group names from this server's regex
+            List<String> regexGroupNames = extractGroupNames(sc.namePattern);
 
-                ServerConfig defaults;
-                if (serverKey.equals("stray.gg")) {
-                    defaults = ServerConfig.createDefaultStrayConfig();
-                } else {
-                    defaults = defaultServerConfig;
+            for (int i = 0; i < sc.categories.size(); i++) {
+                final TagCategory cat = sc.categories.get(i);
+                final String catId = cat.id;
+
+                MutableComponent groupTitle = renderName(cat.name ).copy();
+                if (cat.pendingDelete) {
+                    groupTitle.append(Component.literal(" §c§l[PENDING DELETE]"));
                 }
 
-                String displayName = serverKey.equals("__default__") ? "Default (Fallback)" : serverKey;
+                OptionGroup.Builder group = OptionGroup.createBuilder()
+                        .name(groupTitle)
+                        .description(OptionDescription.of(Component.literal(
+                                "Category " + (i + 1) + " of " + sc.categories.size())))
+                        .collapsed(false);
 
-                ConfigCategory clansCategory = builder.getOrCreateCategory(
-                        Component.literal("§b" + displayName + " §7- Clans"));
+                // Name
+                group.option(Option.<String>createBuilder()
+                        .name(Component.literal("Name"))
+                        .description(OptionDescription.of(Component.literal(
+                                "Category name. Supports MiniMessage. Example: <gold>Own</gold>.")))
+                        .binding(cat.name,
+                                () -> {
+                                    TagCategory c = sc.findCategoryById(catId);
+                                    return c != null ? c.name : "";
+                                },
+                                v -> {
+                                    TagCategory c = sc.findCategoryById(catId);
+                                    if (c != null) c.name = v.trim();
+                                })
+                        .controller(StringControllerBuilder::create).build());
 
-                clansCategory.addEntry(entryBuilder.startStrList(
-                                Component.translatable("straytags.config.own_clans"), sc.ownClans)
-                        .setDefaultValue(new ArrayList<>(defaults.ownClans))
-                        .setTooltip(Component.translatable("straytags.config.own_clans.tooltip"))
-                        .setSaveConsumer(val -> {
-                            sc.ownClans.clear();
-                            sc.ownClans.addAll(val);
-                        })
-                        .build());
+                // Format
+                group.option(Option.<String>createBuilder()
+                        .name(Component.literal("Format"))
+                        .description(buildFormatDescription(cat.format, playerName, regexGroupNames))
+                        .binding("",
+                                () -> {
+                                    TagCategory c = sc.findCategoryById(catId);
+                                    return c != null ? c.format : "";
+                                },
+                                v -> {
+                                    TagCategory c = sc.findCategoryById(catId);
+                                    if (c != null) c.format = v;
+                                })
+                        .controller(StringControllerBuilder::create).build());
 
-                clansCategory.addEntry(entryBuilder.startStrList(
-                                Component.translatable("straytags.config.own_players"), sc.ownPlayers)
-                        .setDefaultValue(new ArrayList<>(defaults.ownPlayers))
-                        .setTooltip(Component.translatable("straytags.config.own_players.tooltip"))
-                        .setSaveConsumer(val -> {
-                            sc.ownPlayers.clear();
-                            sc.ownPlayers.addAll(val);
-                        })
-                        .build());
+                group.option(LabelOption.create(buildFormatPreview(cat.format, cat.name, playerName, regexGroupNames)));
 
-                clansCategory.addEntry(entryBuilder.startStrList(
-                                Component.translatable("straytags.config.allied_clans"), sc.alliedClans)
-                        .setDefaultValue(new ArrayList<>(defaults.alliedClans))
-                        .setTooltip(Component.translatable("straytags.config.allied_clans.tooltip"))
-                        .setSaveConsumer(val -> {
-                            sc.alliedClans.clear();
-                            sc.alliedClans.addAll(val);
-                        })
-                        .build());
-
-                clansCategory.addEntry(entryBuilder.startStrList(
-                                Component.translatable("straytags.config.allied_players"), sc.alliedPlayers)
-                        .setDefaultValue(new ArrayList<>(defaults.alliedPlayers))
-                        .setTooltip(Component.translatable("straytags.config.allied_players.tooltip"))
-                        .setSaveConsumer(val -> {
-                            sc.alliedPlayers.clear();
-                            sc.alliedPlayers.addAll(val);
-                        })
-                        .build());
-
-                clansCategory.addEntry(entryBuilder.startStrList(
-                                Component.translatable("straytags.config.enemy_clans"), sc.enemyClans)
-                        .setDefaultValue(new ArrayList<>(defaults.enemyClans))
-                        .setTooltip(Component.translatable("straytags.config.enemy_clans.tooltip"))
-                        .setSaveConsumer(val -> {
-                            sc.enemyClans.clear();
-                            sc.enemyClans.addAll(val);
-                        })
-                        .build());
-
-                clansCategory.addEntry(entryBuilder.startStrList(
-                                Component.translatable("straytags.config.enemy_players"), sc.enemyPlayers)
-                        .setDefaultValue(new ArrayList<>(defaults.enemyPlayers))
-                        .setTooltip(Component.translatable("straytags.config.enemy_players.tooltip"))
-                        .setSaveConsumer(val -> {
-                            sc.enemyPlayers.clear();
-                            sc.enemyPlayers.addAll(val);
-                        })
-                        .build());
-
-                clansCategory.addEntry(entryBuilder.startTextDescription(
-                        Component.literal("")
-                ).build());
-
-                clansCategory.addEntry(entryBuilder.startTextDescription(
-                        Component.literal("§e§lImport / Export Clans")
-                ).build());
-
-                clansCategory.addEntry(entryBuilder.startTextField(
-                                Component.translatable("straytags.config.export_clans"),
-                                ConfigShareUtil.exportClansOnly(sc))
-                        .setDefaultValue("")
-                        .setTooltip(
-                                Component.translatable("straytags.config.export_clans.tooltip")
-                        )
-                        .setSaveConsumer(val -> {})
-                        .build());
-
-                final ServerConfig scRef = sc;
-                clansCategory.addEntry(entryBuilder.startTextField(
-                                Component.translatable("straytags.config.import_clans"), "")
-                        .setDefaultValue("")
-                        .setTooltip(
-                                Component.translatable("straytags.config.import_clans.tooltip")
-                        )
-                        .setSaveConsumer(val -> {
-                            if (val != null && !val.isBlank()) {
-                                String error = ConfigShareUtil.importConfig(val, scRef);
-                                if (error != null) {
-                                    Minecraft mc = Minecraft.getInstance();
-                                    if (mc.player != null) {
-                                        mc.player.displayClientMessage(
-                                                Component.literal("§c[StrayTags] Import failed: " + error), false);
+                // Match Priority
+                group.option(Option.<String>createBuilder()
+                        .name(Component.literal("Match Priority"))
+                        .description(OptionDescription.of(Component.literal(
+                                "Comma-separated list of regex group names in match order. Groups not listed are checked after, in declaration order. Available: " +
+                                        String.join(", ", regexGroupNames))))
+                        .binding("",
+                                () -> {
+                                    TagCategory c = sc.findCategoryById(catId);
+                                    return c != null ? String.join(", ", c.matchPriority) : "";
+                                },
+                                v -> {
+                                    TagCategory c = sc.findCategoryById(catId);
+                                    if (c != null) {
+                                        c.matchPriority.clear();
+                                        if (!v.isBlank()) {
+                                            for (String s : v.split(",")) {
+                                                String trimmed = s.trim();
+                                                if (!trimmed.isEmpty()) c.matchPriority.add(trimmed);
+                                            }
+                                        }
                                     }
+                                })
+                        .controller(StringControllerBuilder::create).build());
+
+                if (advanced) {
+                    group.option(Option.<String>createBuilder()
+                            .name(Component.literal("§7§o[Adv] §rRegex Matching Override"))
+                            .description(OptionDescription.of(Component.literal(
+                                    "Custom regex for this category only. Must have named groups. Blank = use server default.")))
+                            .binding("",
+                                    () -> {
+                                        TagCategory c = sc.findCategoryById(catId);
+                                        return (c != null && c.namePatternOverride != null) ? c.namePatternOverride : "";
+                                    },
+                                    v -> {
+                                        TagCategory c = sc.findCategoryById(catId);
+                                        if (c != null) {
+                                            c.namePatternOverride = v.isBlank() ? null : v;
+                                        }
+                                    })
+                            .controller(StringControllerBuilder::create).build());
+
+                    group.option(Option.<String>createBuilder()
+                            .name(Component.literal("§7§o[Adv] §rServer Filters"))
+                            .description(OptionDescription.of(Component.literal(
+                                    "Comma-separated server filters. Dot = exact, no dot = substring. Empty = all servers.")))
+                            .binding("",
+                                    () -> {
+                                        TagCategory c = sc.findCategoryById(catId);
+                                        return c != null ? String.join(", ", c.serverFilters) : "";
+                                    },
+                                    v -> {
+                                        TagCategory c = sc.findCategoryById(catId);
+                                        if (c != null) {
+                                            c.serverFilters.clear();
+                                            if (!v.isBlank()) {
+                                                for (String s : v.split(",")) {
+                                                    String trimmed = s.trim();
+                                                    if (!trimmed.isEmpty()) c.serverFilters.add(trimmed);
+                                                }
+                                            }
+                                        }
+                                    })
+                            .controller(StringControllerBuilder::create).build());
+                }
+
+                if (i > 0) {
+                    group.option(ButtonOption.createBuilder()
+                            .name(Component.literal("§7▲ Move Up"))
+                            .description(OptionDescription.of(Component.literal("Move this category up.")))
+                            .action((screen, opt) -> {
+                                int curIdx = sc.indexOfCategory(catId);
+                                if (curIdx > 0) {
+                                    TagCategory moving = sc.categories.remove(curIdx);
+                                    sc.categories.add(curIdx - 1, moving);
+                                    StrayTagsConfigManager.save();
+                                    rebuild(screen, parent);
                                 }
-                            }
-                        })
-                        .build());
-
-                ConfigCategory formatsCategory = builder.getOrCreateCategory(
-                        Component.literal("§d" + displayName + " §7- Formats"));
-
-                addFormatWithPreview(formatsCategory, entryBuilder, playerName,
-                        "straytags.config.own_format", sc.ownFormat, defaults.ownFormat,
-                        "straytags.config.own_format.tooltip", "OWN",
-                        val -> sc.ownFormat = val);
-
-                addFormatWithPreview(formatsCategory, entryBuilder, playerName,
-                        "straytags.config.allied_format", sc.alliedFormat, defaults.alliedFormat,
-                        "straytags.config.allied_format.tooltip", "ALLIED",
-                        val -> sc.alliedFormat = val);
-
-                addFormatWithPreview(formatsCategory, entryBuilder, playerName,
-                        "straytags.config.enemy_format", sc.enemyFormat, defaults.enemyFormat,
-                        "straytags.config.enemy_format.tooltip", "ENEMY",
-                        val -> sc.enemyFormat = val);
-
-                addFormatWithPreview(formatsCategory, entryBuilder, playerName,
-                        "straytags.config.neutral_format", sc.neutralFormat, defaults.neutralFormat,
-                        "straytags.config.neutral_format.tooltip", "NEUTRAL",
-                        val -> sc.neutralFormat = val);
-
-                addFormatWithPreview(formatsCategory, entryBuilder, playerName,
-                        "straytags.config.no_clan_format", sc.noClanFormat, defaults.noClanFormat,
-                        "straytags.config.no_clan_format.tooltip", "NO CLAN",
-                        val -> sc.noClanFormat = val);
-
-                formatsCategory.addEntry(buildExpandedTextField(entryBuilder,
-                        sc.namePattern,
-                        defaults.namePattern,
-                        val -> sc.namePattern = val));
-
-                formatsCategory.addEntry(entryBuilder.startTextDescription(
-                        Component.literal("§7§oLeave a format blank to keep the original nametag for that category.")
-                ).build());
-
-                formatsCategory.addEntry(entryBuilder.startTextDescription(
-                        Component.literal("")
-                ).build());
-
-                formatsCategory.addEntry(entryBuilder.startTextDescription(
-                        Component.literal("§e§lImport / Export Formats")
-                ).build());
-
-                formatsCategory.addEntry(entryBuilder.startTextField(
-                                Component.translatable("straytags.config.export_formats"),
-                                ConfigShareUtil.exportFormatsOnly(sc))
-                        .setDefaultValue("")
-                        .setTooltip(
-                                Component.translatable("straytags.config.export_formats.tooltip")
-                        )
-                        .setSaveConsumer(val -> {})
-                        .build());
-
-                formatsCategory.addEntry(entryBuilder.startTextField(
-                                Component.translatable("straytags.config.import_formats"), "")
-                        .setDefaultValue("")
-                        .setTooltip(
-                                Component.translatable("straytags.config.import_formats.tooltip")
-                        )
-                        .setSaveConsumer(val -> {
-                            if (val != null && !val.isBlank()) {
-                                String error = ConfigShareUtil.importConfig(val, scRef);
-                                if (error != null) {
-                                    Minecraft mc = Minecraft.getInstance();
-                                    if (mc.player != null) {
-                                        mc.player.displayClientMessage(
-                                                Component.literal("§c[StrayTags] Import failed: " + error), false);
-                                    }
+                            }).build());
+                }
+                if (i < sc.categories.size() - 1) {
+                    group.option(ButtonOption.createBuilder()
+                            .name(Component.literal("§7▼ Move Down"))
+                            .description(OptionDescription.of(Component.literal("Move this category down.")))
+                            .action((screen, opt) -> {
+                                int curIdx = sc.indexOfCategory(catId);
+                                if (curIdx >= 0 && curIdx < sc.categories.size() - 1) {
+                                    TagCategory moving = sc.categories.remove(curIdx);
+                                    sc.categories.add(curIdx + 1, moving);
+                                    StrayTagsConfigManager.save();
+                                    rebuild(screen, parent);
                                 }
-                            }
-                        })
-                        .build());
+                            }).build());
+                }
 
-                formatsCategory.addEntry(entryBuilder.startTextDescription(
-                        Component.literal("")
-                ).build());
-
-                formatsCategory.addEntry(entryBuilder.startTextDescription(
-                        Component.literal("§e§lImport / Export Full Server Config")
-                ).build());
-
-                formatsCategory.addEntry(entryBuilder.startTextField(
-                                Component.translatable("straytags.config.export_full"),
-                                ConfigShareUtil.exportConfig(sc))
-                        .setDefaultValue("")
-                        .setTooltip(
-                                Component.translatable("straytags.config.export_full.tooltip")
-                        )
-                        .setSaveConsumer(val -> {})
-                        .build());
-
-                formatsCategory.addEntry(entryBuilder.startTextField(
-                                Component.translatable("straytags.config.import_full"), "")
-                        .setDefaultValue("")
-                        .setTooltip(
-                                Component.translatable("straytags.config.import_full.tooltip")
-                        )
-                        .setSaveConsumer(val -> {
-                            if (val != null && !val.isBlank()) {
-                                String error = ConfigShareUtil.importConfig(val, scRef);
-                                if (error != null) {
-                                    Minecraft mc = Minecraft.getInstance();
-                                    if (mc.player != null) {
-                                        mc.player.displayClientMessage(
-                                                Component.literal("§c[StrayTags] Import failed: " + error), false);
-                                    }
+                if (!cat.pendingDelete) {
+                    group.option(ButtonOption.createBuilder()
+                            .name(Component.literal("§c✖ Mark for Deletion"))
+                            .description(OptionDescription.of(Component.literal("Click 'Confirm Delete' next to actually delete it.")))
+                            .action((screen, opt) -> {
+                                TagCategory c = sc.findCategoryById(catId);
+                                if (c != null) {
+                                    c.pendingDelete = true;
+                                    StrayTagsConfigManager.save();
+                                    rebuild(screen, parent);
                                 }
-                            }
-                        })
-                        .build());
+                            }).build());
+                } else {
+                    group.option(ButtonOption.createBuilder()
+                            .name(Component.literal("§c§l✖ Confirm Delete"))
+                            .description(OptionDescription.of(Component.literal("Permanently delete this category.")))
+                            .action((screen, opt) -> {
+                                int curIdx = sc.indexOfCategory(catId);
+                                if (curIdx >= 0) {
+                                    sc.categories.remove(curIdx);
+                                    StrayTagsConfigManager.save();
+                                    rebuild(screen, parent);
+                                }
+                            }).build());
+
+                    group.option(ButtonOption.createBuilder()
+                            .name(Component.literal("§7Cancel Deletion"))
+                            .description(OptionDescription.of(Component.literal("Cancel the pending deletion.")))
+                            .action((screen, opt) -> {
+                                TagCategory c = sc.findCategoryById(catId);
+                                if (c != null) {
+                                    c.pendingDelete = false;
+                                    StrayTagsConfigManager.save();
+                                    rebuild(screen, parent);
+                                }
+                            }).build());
+                }
+
+                serverCat.group(group.build());
+
+                for (String groupName : regexGroupNames) {
+                    ListOption<String> list = ListOption.<String>createBuilder()
+                            .name(Component.literal(groupName))
+                            .description(OptionDescription.of(Component.literal(
+                                    "Values matching the '" + groupName + "' regex group for this category")))
+                            .binding(new ArrayList<>(),
+                                    () -> {
+                                        TagCategory c = sc.findCategoryById(catId);
+                                        return c != null ? new ArrayList<>(c.getGroup(groupName)) : new ArrayList<>();
+                                    },
+                                    v -> {
+                                        TagCategory c = sc.findCategoryById(catId);
+                                        if (c != null) {
+                                            List<String> target = c.getOrCreateGroup(groupName);
+                                            target.clear();
+                                            target.addAll(v);
+                                        }
+                                    })
+                            .controller(StringControllerBuilder::create)
+                            .initial("")
+                            .collapsed(true)
+                            .build();
+                    serverCat.group(list);
+                }
             }
 
-            return builder.build();
-        };
-    }
+            // Default Formats group
+            OptionGroup.Builder formatsGroup = OptionGroup.createBuilder()
+                    .name(Component.literal("§6§lDefault Formats"))
+                    .description(OptionDescription.of(Component.literal(
+                            "Formats applied when no category matches, plus the default name regex.")))
+                    .collapsed(true);
 
-    private static void addFormatWithPreview(
-            ConfigCategory category,
-            ConfigEntryBuilder entryBuilder,
-            String playerName,
-            String translationKey,
-            String currentValue,
-            String defaultValue,
-            String tooltipKey,
-            String categoryLabel,
-            Consumer<String> saveConsumer
-    ) {
-        category.addEntry(entryBuilder.startTextField(
-                        Component.translatable(translationKey), currentValue)
-                .setDefaultValue(defaultValue)
-                .setTooltip(
-                        Component.translatable(tooltipKey),
-                        Component.literal(""),
-                        Component.literal("§7Placeholders: §f%username% %clan%"),
-                        Component.literal("§7MiniMessage: §f<color:#hex>text</color> <bold> <italic>"),
-                        Component.literal("§7Leave blank to keep original nametag.")
-                )
-                .setSaveConsumer(saveConsumer)
-                .build());
+            formatsGroup.option(Option.<String>createBuilder()
+                    .name(Component.literal("Default Matching Regex"))
+                    .description(OptionDescription.of(Component.literal(
+                            "Regex to parse nametags. Must have named groups. Their names become the labels for the per-category lists.")))
+                    .binding(defaults.namePattern,
+                            () -> sc.namePattern,
+                            v -> sc.namePattern = !v.isBlank() ? v : defaults.namePattern)
+                    .controller(StringControllerBuilder::create).build());
 
-        Component preview;
-        if (currentValue == null || currentValue.isBlank()) {
-            preview = Component.literal("§7  Preview (" + categoryLabel + "): ")
-                    .append(Component.literal("§8(unchanged - blank format)"));
-        } else {
-            try {
-                Component rendered = MiniMessageParser.parse(currentValue, playerName, "CLAN");
-                MutableComponent line = Component.empty();
-                line.append(Component.literal("§7  Preview (" + categoryLabel + "): §f㭗 "));
-                line.append(rendered);
-                preview = line;
-            } catch (Exception e) {
-                preview = Component.literal("§7  Preview (" + categoryLabel + "): §c(error parsing format)");
-            }
+            formatsGroup.option(Option.<String>createBuilder()
+                    .name(Component.literal("Neutral Format"))
+                    .description(buildFormatDescription(sc.neutralFormat, playerName, regexGroupNames))
+                    .binding(defaults.neutralFormat,
+                            () -> sc.neutralFormat,
+                            v -> sc.neutralFormat = v)
+                    .controller(StringControllerBuilder::create).build());
+            formatsGroup.option(LabelOption.create(buildFormatPreview(sc.neutralFormat, "Neutral", playerName, regexGroupNames)));
+
+            formatsGroup.option(Option.<String>createBuilder()
+                    .name(Component.literal("No Clan Format"))
+                    .description(buildFormatDescription(sc.noClanFormat, playerName, regexGroupNames))
+                    .binding(defaults.noClanFormat,
+                            () -> sc.noClanFormat,
+                            v -> sc.noClanFormat = v)
+                    .controller(StringControllerBuilder::create).build());
+            formatsGroup.option(LabelOption.create(buildFormatPreview(sc.noClanFormat, "No Clan", playerName, regexGroupNames)));
+
+            serverCat.group(formatsGroup.build());
+
+            OptionGroup.Builder ioGroup = OptionGroup.createBuilder()
+                    .name(Component.literal("§e§lImport / Export"))
+                    .description(OptionDescription.of(Component.literal("Share your config with other players.")))
+                    .collapsed(true);
+
+            ioGroup.option(Option.<String>createBuilder()
+                    .name(Component.literal("Export Code (copy this)"))
+                    .description(OptionDescription.of(Component.literal("Copy this code and send it to another player.")))
+                    .binding("", () -> ConfigShareUtil.exportConfig(sc), v -> {})
+                    .controller(StringControllerBuilder::create).build());
+
+            ioGroup.option(Option.<String>createBuilder()
+                    .name(Component.literal("Import Code (paste here)"))
+                    .description(OptionDescription.of(Component.literal("Paste a config code here and apply to import.")))
+                    .binding("", () -> "", v -> {
+                        if (!v.isBlank()) {
+                            String error = ConfigShareUtil.importConfig(v, sc);
+                            if (error != null && client.player != null) {
+                                client.player.displayClientMessage(
+                                        Component.literal("§c[StrayTags] Import failed: " + error), false);
+                            }
+                            for (TagCategory c : sc.categories) {
+                                c.ensureId();
+                                c.migrateLegacyLists();
+                            }
+                        }
+                    })
+                    .controller(StringControllerBuilder::create).build());
+
+            serverCat.group(ioGroup.build());
+
+            yaclBuilder.category(serverCat.build());
         }
 
-        category.addEntry(entryBuilder.startTextDescription(preview).build());
+        yaclBuilder.save(() -> {
+            for (ServerConfig sc : config.serverConfigs.values()) {
+                sc.categories.removeIf(cat -> cat.name == null || cat.name.isBlank());
+                for (TagCategory cat : sc.categories) cat.ensureId();
+            }
+            StrayTagsConfigManager.save();
+        });
+
+        return yaclBuilder.build().generateScreen(parent);
     }
 
-    private static me.shedaniel.clothconfig2.api.AbstractConfigListEntry<?> buildExpandedTextField(
-            ConfigEntryBuilder entryBuilder,
-            String currentValue,
-            String defaultValue,
-            Consumer<String> saveConsumer
-    ) {
-        return entryBuilder.startTextField(
-                        Component.translatable("straytags.config.name_pattern"), currentValue)
-                .setDefaultValue(defaultValue)
-                .setTooltip(
-                        Component.translatable("straytags.config.name_pattern.tooltip"),
-                        Component.literal(""),
-                        Component.literal("§7Placeholders: §f%username% %clan%"),
-                        Component.literal("§7MiniMessage: §f<color:#hex>text</color> <bold> <italic>"),
-                        Component.literal("§7Leave blank to keep original nametag.")
-                )
-                .setSaveConsumer(saveConsumer)
-                .build();
+    private static void rebuild(YACLScreen screen, Screen parent) {
+        int idx = -1;
+        try {
+            if (screen.tabNavigationBar != null) {
+                Tab currentTab = screen.tabManager.getCurrentTab();
+                if (currentTab != null) {
+                    idx = screen.tabNavigationBar.getTabs().indexOf(currentTab);
+                }
+            }
+        } catch (Exception ignored) {}
+        Minecraft.getInstance().setScreen(create(parent, idx));
+    }
+
+    private static List<String> extractGroupNames(String pattern) {
+        List<String> names = new ArrayList<>();
+        if (pattern == null) return names;
+        try {
+            Pattern groupNameP = Pattern.compile("\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>");
+            Matcher m = groupNameP.matcher(pattern);
+            while (m.find()) names.add(m.group(1));
+        } catch (Exception ignored) {}
+        return names;
+    }
+
+    private static Component renderName(String name) {
+        if (name == null || name.isEmpty()) return Component.literal("§6§l" + "(unnamed)");
+        try {
+            if (name.contains("<") && name.contains(">")) {
+                return MiniMessageParser.parse(name, Map.of());
+            }
+        } catch (Exception ignored) {}
+        return Component.literal("§6§l" + name);
+    }
+
+    private static Map<String, String> buildPreviewPlaceholders(String playerName, List<String> regexGroupNames) {
+        Map<String, String> map = new LinkedHashMap<>();
+        for (int i = 0; i < regexGroupNames.size(); i++) {
+            String g = regexGroupNames.get(i);
+            map.put(g, i == 0 ? playerName : g.toUpperCase());
+        }
+        // Legacy aliases
+        if (!map.containsKey("username")) map.put("username", playerName);
+        if (!map.containsKey("clan")) map.put("clan", "CLAN");
+        return map;
+    }
+
+    private static Component buildFormatPreview(String format, String catName, String playerName, List<String> regexGroupNames) {
+        if (format == null || format.isBlank()) {
+            return Component.literal("§7Preview: ")
+                    .append(Component.literal("§8(unchanged - blank format)"));
+        }
+        try {
+            Component rendered = MiniMessageParser.parse(format, buildPreviewPlaceholders(playerName, regexGroupNames));
+            MutableComponent line = Component.empty();
+            line.append(Component.literal("§7Preview: "));
+            line.append(Component.literal(IconFont.GLYPH).withStyle(IconFont.iconStyle()));
+            line.append(Component.literal(" "));
+            line.append(rendered);
+            return line;
+        } catch (Exception e) {
+            return Component.literal("§7Preview: §c(error parsing format)");
+        }
+    }
+
+    private static OptionDescription buildFormatDescription(String currentFormat, String playerName, List<String> regexGroupNames) {
+        Component preview;
+        if (currentFormat == null || currentFormat.isBlank()) {
+            preview = Component.literal("§8(blank - keeps original)");
+        } else {
+            try {
+                preview = MiniMessageParser.parse(currentFormat, buildPreviewPlaceholders(playerName, regexGroupNames));
+            } catch (Exception e) {
+                preview = Component.literal("§c(error)");
+            }
+        }
+        StringBuilder placeholders = new StringBuilder();
+        for (String g : regexGroupNames) {
+            if (!placeholders.isEmpty()) placeholders.append(' ');
+            placeholders.append("%").append(g).append("%");
+        }
+        if (placeholders.isEmpty()) placeholders.append("%username% %clan%");
+
+        MutableComponent desc = Component.literal("MiniMessage format. Placeholders: " + placeholders + "\n");
+        desc.append(Component.literal("Tags: <color:#hex>...</color> <bold> <italic>\n\n"));
+        desc.append(Component.literal("Preview: "));
+        desc.append(preview);
+        return OptionDescription.of(desc);
+    }
+
+    private static String stripMiniTags(String s) {
+        if (s == null) return "";
+        return s.replaceAll("<[^>]+>", "").trim();
     }
 }
