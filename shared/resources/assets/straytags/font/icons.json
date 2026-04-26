@@ -1,0 +1,11 @@
+{
+  "providers": [
+    {
+      "type": "bitmap",
+      "file": "straytags:font/strayplus.png",
+      "ascent": 7,
+      "height": 7,
+      "chars": ["㭗"]
+    }
+  ]
+}
