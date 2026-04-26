@@ -8,9 +8,8 @@ public class StrayTagsModMenuIntegration implements ModMenuApi {
 
     @Override
     public ConfigScreenFactory<?> getModConfigScreenFactory() {
-        if (FabricLoader.getInstance().isModLoaded("cloth-config2") ||
-                FabricLoader.getInstance().isModLoaded("cloth-config")) {
-            return StrayTagsConfigScreenBuilder.create();
+        if (FabricLoader.getInstance().isModLoaded("yet_another_config_lib_v3")) {
+            return StrayTagsConfigScreenBuilder::create;
         }
         return parent -> null;
     }
