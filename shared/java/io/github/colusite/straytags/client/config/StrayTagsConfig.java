@@ -9,6 +9,7 @@ public class StrayTagsConfig {
 
     public boolean enabled = true;
     public boolean debugCommandsEnabled = false;
+    public boolean advancedMode = false;
     public List<String> serverWhitelist = new ArrayList<>();
     public Map<String, ServerConfig> serverConfigs = new HashMap<>();
 
@@ -19,6 +20,7 @@ public class StrayTagsConfig {
         StrayTagsConfig config = new StrayTagsConfig();
         config.enabled = true;
         config.debugCommandsEnabled = false;
+        config.advancedMode = false;
         config.serverWhitelist.add("stray.gg");
         config.serverConfigs.put("stray.gg", ServerConfig.createDefaultStrayConfig());
         config.serverConfigs.put("__default__", new ServerConfig());
