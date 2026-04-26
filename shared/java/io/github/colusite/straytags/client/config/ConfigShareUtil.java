@@ -2,7 +2,6 @@ package io.github.colusite.straytags.client.config;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonParser;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
