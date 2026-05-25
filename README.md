@@ -1,5 +1,5 @@
 <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/0a809e27-ac19-4d35-903e-7a7bcdea32b4" />
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/049db5f1-4b4c-4fda-be1b-9debbce3b83e" />
+<img width="2560" height="1441" alt="image" src="https://github.com/user-attachments/assets/1468c06c-600e-4a01-ba4b-a3dcb3e6ced2" />
 
 # Stray Tags
 ## Tested on Fabric 1.21, 1.21.4, 1.21.8, 1.21.11
@@ -61,4 +61,4 @@ The following commands require "Enable Debug Commands" to be turned on in the Ge
 JSON config at `config/straytags.json`. YACL + Mod Menu integration for in-game editing.\
 Legacy configs (Cloth Config era + hardcoded Own/Allied/Enemy) auto-migrate on load.
 
-<img width="2560" height="1441" alt="image" src="https://github.com/user-attachments/assets/43590f09-a896-4eac-932b-68d662a5ac48" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/049db5f1-4b4c-4fda-be1b-9debbce3b83e" />
