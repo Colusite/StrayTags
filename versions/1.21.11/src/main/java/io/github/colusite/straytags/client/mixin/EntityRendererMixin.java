@@ -62,7 +62,10 @@ public abstract class EntityRendererMixin {
             StrayTagsClient.logVerbose(rawLineString, playerName);
 
             // Try to process
-            Component modified = StrayTagsClient.processDisplayName(Component.literal(rawLineString));
+            Component modified = StrayTagsClient.processDisplayName(
+                    Component.literal(rawLineString),
+                    player.getUUID(),
+                    playerName);
             if (modified == null) continue;
 
             // Rebuild with original prefix/suffix preserved

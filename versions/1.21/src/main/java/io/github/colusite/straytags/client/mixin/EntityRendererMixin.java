@@ -2,7 +2,6 @@ package io.github.colusite.straytags.client.mixin;
 
 import io.github.colusite.straytags.client.StrayTagsClient;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.DisplayRenderer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
@@ -61,7 +60,10 @@ public abstract class EntityRendererMixin {
 
             StrayTagsClient.logVerbose(rawLineString, playerName);
 
-            Component modified = StrayTagsClient.processDisplayName(Component.literal(rawLineString));
+            Component modified = StrayTagsClient.processDisplayName(
+                    Component.literal(rawLineString),
+                    player.getUUID(),
+                    playerName);
             if (modified == null) continue;
 
             Component finalComponent = StrayTagsClient.rebuildWithPrefixSuffix(rawLineString, cleaned, modified);

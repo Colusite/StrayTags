@@ -46,6 +46,10 @@ public class StrayTagsConfigManager {
                     }
                 }
                 for (ServerConfig sc : config.serverConfigs.values()) {
+                    if (sc.uuidGroups == null) {
+                        sc.uuidGroups = new java.util.ArrayList<>(java.util.List.of("Usernames"));
+                        migrated = true;
+                    }
                     for (TagCategory cat : sc.categories) {
                         if (cat.ensureId()) migrated = true;
                         if (cat.migrateLegacyLists()) migrated = true;

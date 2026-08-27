@@ -5,6 +5,7 @@ import io.github.colusite.straytags.client.config.StrayTagsConfig;
 import io.github.colusite.straytags.client.config.StrayTagsConfigManager;
 import io.github.colusite.straytags.client.config.TagCategory;
 import io.github.colusite.straytags.client.minimessage.MiniMessageParser;
+import io.github.colusite.straytags.client.username.UsernameCache;
 import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ServerData;
@@ -14,8 +15,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashSet;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.List;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -34,6 +38,7 @@ public class StrayTagsClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         StrayTagsConfigManager.load();
+        UsernameCache.getInstance();
         TestCommand.register();
         LOGGER.info("[StrayTags] Initialized! Mod is {}.",
                 StrayTagsConfigManager.getConfig().enabled ? "enabled" : "disabled");
@@ -191,7 +196,7 @@ public class StrayTagsClient implements ClientModInitializer {
         verboseLoggedNames.clear();
     }
 
-    public static Component processDisplayName(Component original) {
+    public static Component processDisplayName(Component original, UUID playerUuid, String playerName) {
         if (original == null) return null;
 
         ServerConfig serverConfig = getActiveServerConfig();
@@ -202,6 +207,10 @@ public class StrayTagsClient implements ClientModInitializer {
 
         String plainName = cleanForMatching(rawString);
         if (plainName == null || plainName.isEmpty()) return null;
+
+        if (playerUuid != null && playerName != null && !playerName.isEmpty()) {
+            UsernameCache.getInstance().observePlayer(playerUuid, playerName);
+        }
 
         String serverAddress = getCurrentServerAddress();
 
@@ -220,17 +229,7 @@ public class StrayTagsClient implements ClientModInitializer {
 
                 List<String> regexGroupNames = new java.util.ArrayList<>(matches.keySet());
                 List<String> order = cat.effectiveMatchOrder(regexGroupNames);
-                boolean hit = false;
-                for (String groupName : order) {
-                    String matched = matches.get(groupName);
-                    if (matched == null || matched.isEmpty()) continue;
-                    for (String entry : cat.getGroup(groupName)) {
-                        if (entry.equalsIgnoreCase(matched)) { hit = true; break; }
-                    }
-                    if (hit) break;
-                }
-
-                if (hit) {
+                if (categoryMatchesPlayer(cat, serverConfig, matches, order, playerUuid, playerName)) {
                     String format = cat.format;
                     if (format == null || format.isBlank()) return null;
                     return MiniMessageParser.parse(format, matches);
@@ -245,7 +244,7 @@ public class StrayTagsClient implements ClientModInitializer {
             if (matches.isEmpty()) return null;
 
             List<String> regexGroupNames = new java.util.ArrayList<>(matches.keySet());
-            TagCategory matchingCat = serverConfig.findCategory(matches, regexGroupNames, serverAddress);
+            TagCategory matchingCat = serverConfig.findCategory(matches, regexGroupNames, serverAddress, playerUuid, playerName);
 
             String format;
             if (matchingCat != null) {
@@ -263,6 +262,35 @@ public class StrayTagsClient implements ClientModInitializer {
             LOGGER.debug("[StrayTags] Failed to process display name '{}': {}", plainName, e.getMessage());
             return null;
         }
+    }
+
+    static boolean categoryMatchesPlayer(TagCategory cat, ServerConfig serverConfig,
+                                         java.util.Map<String, String> matches, List<String> order,
+                                         UUID playerUuid, String playerName) {
+        String playerUuidStr = playerUuid != null ? playerUuid.toString().toLowerCase(Locale.ROOT) : null;
+        for (String groupName : order) {
+            String matched = matches.get(groupName);
+            if (matched == null || matched.isEmpty()) continue;
+            boolean isUuidGroup = serverConfig.isUuidGroup(groupName);
+            for (String entry : cat.getGroup(groupName)) {
+                if (entry == null || entry.isEmpty()) continue;
+                if (isUuidGroup) {
+                    String norm = UsernameCache.normalizeUuid(entry);
+                    if (norm != null) {
+                        if (norm.equals(playerUuidStr)) return true;
+                    } else if (entry.equalsIgnoreCase(playerName)) {
+                        return true;
+                    }
+                    if (playerUuidStr != null) {
+                        Optional<String> resolved = UsernameCache.getInstance().getUuid(entry);
+                        if (resolved.isPresent() && resolved.get().equals(playerUuidStr)) return true;
+                    }
+                } else {
+                    if (entry.equalsIgnoreCase(matched)) return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static java.util.Map<String, String> extractAllNamedGroups(Pattern pattern, Matcher matcher) {

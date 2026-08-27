@@ -18,6 +18,7 @@ import io.github.colusite.straytags.client.config.StrayTagsConfig;
 import io.github.colusite.straytags.client.config.StrayTagsConfigManager;
 import io.github.colusite.straytags.client.config.TagCategory;
 import io.github.colusite.straytags.client.minimessage.MiniMessageParser;
+import io.github.colusite.straytags.client.username.UsernameCache;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.tabs.Tab;
 import net.minecraft.client.gui.screens.Screen;
@@ -28,6 +29,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -107,6 +109,22 @@ public class StrayTagsConfigScreenBuilder {
                     .name(Component.literal(displayName));
 
             serverCat.option(ButtonOption.createBuilder()
+                    .name(Component.literal("§b⟳ Force Reload Usernames"))
+                    .description(OptionDescription.of(Component.literal(
+                            "Refetch cached usernames for every UUID entry in this server's categories. " +
+                                    "Usernames refresh once complete.")))
+                    .action((screen, opt) -> {
+                        List<String> uuids = collectUuidEntries(sc);
+                        if (uuids.isEmpty()) {
+                            rebuild(screen, parent);
+                            return;
+                        }
+                        UsernameCache.getInstance().resolveBulk(uuids)
+                                .thenRun(() -> Minecraft.getInstance().execute(() -> rebuild(screen, parent)));
+                    })
+                    .build());
+
+            serverCat.option(ButtonOption.createBuilder()
                     .name(Component.literal("§a✚ Add New Category"))
                     .description(OptionDescription.of(Component.literal(
                             "Click to add a new empty category. Edit it after creating.")))
@@ -166,7 +184,7 @@ public class StrayTagsConfigScreenBuilder {
                                 })
                         .controller(StringControllerBuilder::create).build());
 
-                group.option(LabelOption.create(buildFormatPreview(cat.format, cat.name, playerName, regexGroupNames)));
+                group.option(LabelOption.create(buildFormatPreview(cat.format, playerName, regexGroupNames)));
 
                 // Match Priority
                 group.option(Option.<String>createBuilder()
@@ -305,28 +323,32 @@ public class StrayTagsConfigScreenBuilder {
                 serverCat.group(group.build());
 
                 for (String groupName : regexGroupNames) {
-                    ListOption<String> list = ListOption.<String>createBuilder()
-                            .name(Component.literal(groupName))
-                            .description(OptionDescription.of(Component.literal(
-                                    "Values matching the '" + groupName + "' regex group for this category")))
-                            .binding(new ArrayList<>(),
-                                    () -> {
-                                        TagCategory c = sc.findCategoryById(catId);
-                                        return c != null ? new ArrayList<>(c.getGroup(groupName)) : new ArrayList<>();
-                                    },
-                                    v -> {
-                                        TagCategory c = sc.findCategoryById(catId);
-                                        if (c != null) {
-                                            List<String> target = c.getOrCreateGroup(groupName);
-                                            target.clear();
-                                            target.addAll(v);
-                                        }
-                                    })
-                            .controller(StringControllerBuilder::create)
-                            .initial("")
-                            .collapsed(true)
-                            .build();
-                    serverCat.group(list);
+                    if (sc.isUuidGroup(groupName)) {
+                        serverCat.group(buildUuidListOption(sc, catId, groupName));
+                    } else {
+                        ListOption<String> list = ListOption.<String>createBuilder()
+                                .name(Component.literal(groupName))
+                                .description(OptionDescription.of(Component.literal(
+                                        "Values matching the '" + groupName + "' regex group for this category")))
+                                .binding(new ArrayList<>(),
+                                        () -> {
+                                            TagCategory c = sc.findCategoryById(catId);
+                                            return c != null ? new ArrayList<>(c.getGroup(groupName)) : new ArrayList<>();
+                                        },
+                                        v -> {
+                                            TagCategory c = sc.findCategoryById(catId);
+                                            if (c != null) {
+                                                List<String> target = c.getOrCreateGroup(groupName);
+                                                target.clear();
+                                                target.addAll(v);
+                                            }
+                                        })
+                                .controller(StringControllerBuilder::create)
+                                .initial("")
+                                .collapsed(true)
+                                .build();
+                        serverCat.group(list);
+                    }
                 }
             }
 
@@ -353,7 +375,7 @@ public class StrayTagsConfigScreenBuilder {
                             () -> sc.neutralFormat,
                             v -> sc.neutralFormat = v)
                     .controller(StringControllerBuilder::create).build());
-            formatsGroup.option(LabelOption.create(buildFormatPreview(sc.neutralFormat, "Neutral", playerName, regexGroupNames)));
+            formatsGroup.option(LabelOption.create(buildFormatPreview(sc.neutralFormat, playerName, regexGroupNames)));
 
             formatsGroup.option(Option.<String>createBuilder()
                     .name(Component.literal("No Clan Format"))
@@ -362,7 +384,7 @@ public class StrayTagsConfigScreenBuilder {
                             () -> sc.noClanFormat,
                             v -> sc.noClanFormat = v)
                     .controller(StringControllerBuilder::create).build());
-            formatsGroup.option(LabelOption.create(buildFormatPreview(sc.noClanFormat, "No Clan", playerName, regexGroupNames)));
+            formatsGroup.option(LabelOption.create(buildFormatPreview(sc.noClanFormat, playerName, regexGroupNames)));
 
             serverCat.group(formatsGroup.build());
 
@@ -457,7 +479,7 @@ public class StrayTagsConfigScreenBuilder {
         return map;
     }
 
-    private static Component buildFormatPreview(String format, String catName, String playerName, List<String> regexGroupNames) {
+    private static Component buildFormatPreview(String format, String playerName, List<String> regexGroupNames) {
         if (format == null || format.isBlank()) {
             return Component.literal("§7Preview: ")
                     .append(Component.literal("§8(unchanged - blank format)"));
@@ -500,8 +522,110 @@ public class StrayTagsConfigScreenBuilder {
         return OptionDescription.of(desc);
     }
 
-    private static String stripMiniTags(String s) {
-        if (s == null) return "";
-        return s.replaceAll("<[^>]+>", "").trim();
+    private static String displayFor(String stored) {
+        String norm = UsernameCache.normalizeUuid(stored);
+        if (norm == null) return stored;
+        Optional<String> cached = UsernameCache.getInstance().getUsername(norm);
+        return cached.orElse(norm);
+    }
+
+    private static List<String> collectUuidEntries(ServerConfig sc) {
+        List<String> uuids = new ArrayList<>();
+        if (sc.uuidGroups == null) return uuids;
+        for (TagCategory c : sc.categories) {
+            for (String g : sc.uuidGroups) {
+                for (String entry : c.getGroup(g)) {
+                    String norm = UsernameCache.normalizeUuid(entry);
+                    if (norm != null && !uuids.contains(norm)) uuids.add(norm);
+                }
+            }
+        }
+        return uuids;
+    }
+
+    private static ListOption<String> buildUuidListOption(ServerConfig sc, String catId, String groupName) {
+        TagCategory currentCat = sc.findCategoryById(catId);
+        List<String> initialStored = currentCat != null
+                ? new ArrayList<>(currentCat.getGroup(groupName))
+                : new ArrayList<>();
+
+        Map<String, String> displayToStored = new LinkedHashMap<>();
+        for (String s : initialStored) {
+            String disp = displayFor(s);
+            displayToStored.putIfAbsent(disp, s);
+        }
+
+        return ListOption.<String>createBuilder()
+                .name(buildUuidGroupHeader(groupName, initialStored))
+                .description(OptionDescription.of(Component.literal(
+                        "UUID treated group. Entries can be UUIDs or usernames; usernames are resolved to " +
+                                "UUIDs on save. Cached usernames are displayed here. Use §b⟳ Force Reload Usernames§r " +
+                                "at the top of this tab to refresh.")))
+                .binding(new ArrayList<>(),
+                        () -> {
+                            TagCategory c = sc.findCategoryById(catId);
+                            if (c == null) return new ArrayList<>();
+                            List<String> displayed = new ArrayList<>();
+                            for (String s : c.getGroup(groupName)) displayed.add(displayFor(s));
+                            return displayed;
+                        },
+                        v -> {
+                            TagCategory c = sc.findCategoryById(catId);
+                            if (c == null) return;
+                            List<String> target = c.getOrCreateGroup(groupName);
+                            target.clear();
+                            for (String incoming : v) {
+                                if (incoming == null) continue;
+                                String trimmed = incoming.trim();
+                                if (trimmed.isEmpty()) continue;
+                                String mapped = displayToStored.get(trimmed);
+                                if (mapped != null) {
+                                    target.add(mapped);
+                                    continue;
+                                }
+                                String asUuid = UsernameCache.normalizeUuid(trimmed);
+                                if (asUuid != null) {
+                                    target.add(asUuid);
+                                } else if (UsernameCache.looksLikeUsername(trimmed)) {
+                                    Optional<String> cachedUuid = UsernameCache.getInstance().getUuid(trimmed);
+                                    if (cachedUuid.isPresent()) {
+                                        target.add(cachedUuid.get());
+                                    } else {
+                                        target.add(trimmed);
+                                        UsernameCache.getInstance().resolveUuid(trimmed);
+                                    }
+                                } else {
+                                    target.add(trimmed);
+                                }
+                            }
+                        })
+                .controller(StringControllerBuilder::create)
+                .initial("")
+                .collapsed(true)
+                .build();
+    }
+
+    private static Component buildUuidGroupHeader(String groupName, List<String> stored) {
+        int stale = 0, unresolved = 0;
+        UsernameCache cache = UsernameCache.getInstance();
+        for (String s : stored) {
+            String norm = UsernameCache.normalizeUuid(s);
+            if (norm == null) {
+                if (cache.getUuid(s).isEmpty()) unresolved++;
+            } else if (!cache.isCached(norm)) {
+                unresolved++;
+            } else if (cache.isStale(norm)) {
+                stale++;
+            }
+        }
+        StringBuilder tail = new StringBuilder();
+        if (stale > 0) tail.append(stale).append(" stale");
+        if (unresolved > 0) {
+            if (!tail.isEmpty()) tail.append(", ");
+            tail.append(unresolved).append(" unresolved");
+        }
+        String header = groupName + " (UUID)";
+        if (!tail.isEmpty()) header = header + " §e[" + tail + "]";
+        return Component.literal(header);
     }
 }
