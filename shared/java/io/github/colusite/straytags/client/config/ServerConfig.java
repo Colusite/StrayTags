@@ -1,8 +1,10 @@
 package io.github.colusite.straytags.client.config;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class ServerConfig {
 
@@ -20,8 +22,18 @@ public class ServerConfig {
     // Defaults to ["Usernames"] to match the default namePattern.
     public List<String> uuidGroups = new ArrayList<>(List.of("Usernames"));
 
+    private transient Set<String> uuidGroupSet;
+    private transient int uuidGroupSetStamp = -1;
+
     public boolean isUuidGroup(String groupName) {
-        return uuidGroups != null && uuidGroups.contains(groupName);
+        if (groupName == null) return false;
+        if (uuidGroups == null) return false;
+        int currentStamp = System.identityHashCode(uuidGroups) ^ uuidGroups.size();
+        if (uuidGroupSet == null || uuidGroupSetStamp != currentStamp) {
+            uuidGroupSet = new HashSet<>(uuidGroups);
+            uuidGroupSetStamp = currentStamp;
+        }
+        return uuidGroupSet.contains(groupName);
     }
 
     // Legacy fields
@@ -111,31 +123,19 @@ public class ServerConfig {
                                     String playerName) {
         if (groupMatches == null || groupMatches.isEmpty()) return null;
         String playerUuidStr = playerUuid != null ? playerUuid.toString().toLowerCase(java.util.Locale.ROOT) : null;
+        long generation = StrayTagsConfigManager.getGeneration();
         for (TagCategory cat : categories) {
             if (!cat.appliesToServer(serverAddress)) continue;
+            cat.ensureLookup(this, generation);
             List<String> order = cat.effectiveMatchOrder(regexGroupNames);
             for (String groupName : order) {
                 String matched = groupMatches.get(groupName);
                 if (matched == null || matched.isEmpty()) continue;
-                boolean isUuidGroup = isUuidGroup(groupName);
-                List<String> entries = cat.getGroup(groupName);
-                for (String entry : entries) {
-                    if (entry == null || entry.isEmpty()) continue;
-                    if (isUuidGroup) {
-                        String norm = io.github.colusite.straytags.client.username.UsernameCache.normalizeUuid(entry);
-                        if (norm != null) {
-                            if (norm.equals(playerUuidStr)) return cat;
-                        } else if (entry.equalsIgnoreCase(playerName)) {
-                            return cat;
-                        }
-                        if (playerUuidStr != null) {
-                            java.util.Optional<String> resolved =
-                                    io.github.colusite.straytags.client.username.UsernameCache.getInstance().getUuid(entry);
-                            if (resolved.isPresent() && resolved.get().equals(playerUuidStr)) return cat;
-                        }
-                    } else {
-                        if (entry.equalsIgnoreCase(matched)) return cat;
-                    }
+                if (isUuidGroup(groupName)) {
+                    if (cat.uuidMatches(groupName, playerUuidStr)) return cat;
+                    if (cat.uuidNameMatches(groupName, playerName)) return cat;
+                } else {
+                    if (cat.literalMatches(groupName, matched)) return cat;
                 }
             }
         }

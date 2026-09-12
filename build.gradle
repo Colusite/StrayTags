@@ -1,11 +1,11 @@
 subprojects {
     group = "io.github.colusite"
-    version = "0.1.0"
+    version = "0.1.1"
 }
 
 tasks.register("collectJars", Copy) {
     subprojects.each { sub ->
-        dependsOn sub.tasks.matching { it.name == "remapJar" }
+        dependsOn sub.tasks.matching { it.name == "remapJar" || it.name == "jar" }
         from(sub.file("build/libs")) {
             include "*.jar"
             exclude "*-dev.jar", "*-sources.jar"

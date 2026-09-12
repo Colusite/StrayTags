@@ -11,6 +11,7 @@ import dev.isxander.yacl3.api.YetAnotherConfigLib;
 import dev.isxander.yacl3.api.controller.StringControllerBuilder;
 import dev.isxander.yacl3.api.controller.TickBoxControllerBuilder;
 import dev.isxander.yacl3.gui.YACLScreen;
+import io.github.colusite.straytags.client.compat.ChatCompat;
 import io.github.colusite.straytags.client.compat.IconFont;
 import io.github.colusite.straytags.client.config.ConfigShareUtil;
 import io.github.colusite.straytags.client.config.ServerConfig;
@@ -406,8 +407,8 @@ public class StrayTagsConfigScreenBuilder {
                         if (!v.isBlank()) {
                             String error = ConfigShareUtil.importConfig(v, sc);
                             if (error != null && client.player != null) {
-                                client.player.displayClientMessage(
-                                        Component.literal("§c[StrayTags] Import failed: " + error), false);
+                                ChatCompat.sendSystem(client.player,
+                                        Component.literal("§c[StrayTags] Import failed: " + error));
                             }
                             for (TagCategory c : sc.categories) {
                                 c.ensureId();

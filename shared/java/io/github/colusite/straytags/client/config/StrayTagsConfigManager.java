@@ -18,6 +18,14 @@ public class StrayTagsConfigManager {
 
     private static StrayTagsConfig config;
 
+    // Bumped on every load/save. Used by hot-path caches (compiled regexes,
+    // per-category lookup sets, render results) to know when to invalidate.
+    private static volatile long generation = 0L;
+
+    public static long getGeneration() {
+        return generation;
+    }
+
     public static StrayTagsConfig getConfig() {
         if (config == null) {
             load();
@@ -69,6 +77,7 @@ public class StrayTagsConfigManager {
             save();
             LOGGER.info("[StrayTags] Default configuration created at {}", configPath);
         }
+        generation++;
     }
 
     public static void save() {
@@ -82,6 +91,7 @@ public class StrayTagsConfigManager {
         } catch (IOException e) {
             LOGGER.error("[StrayTags] Failed to save config", e);
         }
+        generation++;
     }
 
     private static Path getConfigPath() {
