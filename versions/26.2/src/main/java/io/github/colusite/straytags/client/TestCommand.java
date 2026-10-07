@@ -87,22 +87,6 @@ public class TestCommand {
         dispatcher.register(root);
     }
 
-    private static int runModelDump(FabricClientCommandSource source, String group) {
-        String key = group == null ? "all" : group.toLowerCase(java.util.Locale.ROOT);
-        var phases = ItemDumpScreen.TAG_PHASES.get(key);
-        if (phases == null) {
-            source.sendFeedback(Component.literal(
-                    "§c[StrayTags] Unknown group '" + group + "'. Valid: "
-                            + String.join(", ", ItemDumpScreen.TAG_PHASES.keySet())));
-            return 0;
-        }
-        Minecraft mc = Minecraft.getInstance();
-        mc.execute(() -> mc.setScreenAndShow(new ItemDumpScreen(phases)));
-        source.sendFeedback(Component.literal(
-                "§e[StrayTags] Opening item-dump screen for '" + key + "' (auto-closes after dump)..."));
-        return 1;
-    }
-
     private static int runTestUser(FabricClientCommandSource source, String targetName) {
         Minecraft client = Minecraft.getInstance();
         if (client.level == null || client.player == null) {

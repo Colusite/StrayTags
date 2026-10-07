@@ -12,6 +12,7 @@ import dev.isxander.yacl3.api.controller.StringControllerBuilder;
 import dev.isxander.yacl3.api.controller.TickBoxControllerBuilder;
 import dev.isxander.yacl3.gui.YACLScreen;
 import io.github.colusite.straytags.client.compat.ChatCompat;
+import io.github.colusite.straytags.client.compat.ScreenCompat;
 import io.github.colusite.straytags.client.compat.IconFont;
 import io.github.colusite.straytags.client.config.ConfigShareUtil;
 import io.github.colusite.straytags.client.config.ServerConfig;
@@ -444,7 +445,7 @@ public class StrayTagsConfigScreenBuilder {
                 }
             }
         } catch (Exception ignored) {}
-        Minecraft.getInstance().setScreen(create(parent, idx));
+        ScreenCompat.setScreen(create(parent, idx));
     }
 
     private static List<String> extractGroupNames(String pattern) {
