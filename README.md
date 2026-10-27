@@ -4,6 +4,14 @@
 # Stray Tags
 Tired of clan leaders changing their clan tag colour every 5 minutes?\
 With this mod, you can freely customise the nametags of players so that your colour recognition isn't messed up by clan leaders.
+
+## FAQ
+"It doesn't work for me on Lunar x.xx.xx"
+- Disable the Lunar tiertagger module and use the mod instead
+- If that doesn't work, disable the mod and use the Lunar tiertagger module instead
+- If that doesn't work, disable both
+- If that doesn't work, uh make a bug report in the issues tab please
+
 ## Dependencies
 - Fabric API
 - YACL + Mod Menu (optional but recommended, for in-game config screen)
