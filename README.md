@@ -2,7 +2,6 @@
 <img width="2560" height="1441" alt="image" src="https://github.com/user-attachments/assets/1468c06c-600e-4a01-ba4b-a3dcb3e6ced2" />
 
 # Stray Tags
-## Tested on Fabric 1.21, 1.21.4, 1.21.8, 1.21.11
 Tired of clan leaders changing their clan tag colour every 5 minutes?\
 With this mod, you can freely customise the nametags of players so that your colour recognition isn't messed up by clan leaders.
 ## Dependencies
