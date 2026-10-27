@@ -3,9 +3,7 @@
   "package": "io.github.colusite.straytags.client.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "EntityRendererMixin",
-    "GuiRendererMixin",
-    "ItemFoilMixin"
+    "EntityRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1
