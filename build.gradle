@@ -1,6 +1,10 @@
+ext {
+    mod_version = "0.1.1"
+}
+
 subprojects {
     group = "io.github.colusite"
-    version = "0.1.1"
+    version = rootProject.mod_version
 }
 
 tasks.register("collectJars", Copy) {

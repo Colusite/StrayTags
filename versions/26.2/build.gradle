@@ -8,7 +8,6 @@ ext {
     fabric_version = "0.160.0+26.2"
     yacl_version = "3.9.6+26.2-fabric"
     modmenu_version = "20.0.2"
-    mod_version = "0.0.5"
 }
 
 base {
